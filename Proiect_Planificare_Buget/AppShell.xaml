@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="Proiect_Planificare_Buget.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pages="clr-namespace:Proiect_Planificare_Buget.Pages"
+    FlyoutBehavior="Flyout"
+    Title="Budget Planner">
+
+    <FlyoutItem Title="Overview">
+        <ShellContent
+            Title="Overview"
+            ContentTemplate="{DataTemplate pages:MainPage}"
+            Route="overview" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Tranzactii">
+        <ShellContent
+            Title="Tranzactii"
+            ContentTemplate="{DataTemplate pages:TransactionsPage}"
+            Route="transactions" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Bugete">
+        <ShellContent
+            Title="Bugete"
+            ContentTemplate="{DataTemplate pages:BudgetsPage}"
+            Route="budgets" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Obiective">
+        <ShellContent
+            Title="Obiective"
+            ContentTemplate="{DataTemplate pages:GoalsPage}"
+            Route="goals" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Insight-uri">
+        <ShellContent
+            Title="Insight-uri"
+            ContentTemplate="{DataTemplate pages:InsightsPage}"
+            Route="insights" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Setari">
+        <ShellContent
+            Title="Setari"
+            ContentTemplate="{DataTemplate pages:SettingsPage}"
+            Route="settings" />
+    </FlyoutItem>
+
+</Shell>
