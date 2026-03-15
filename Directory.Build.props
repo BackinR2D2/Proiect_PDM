@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <_UserHome>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))</_UserHome>
+    <AndroidSdkDirectory Condition="'$(AndroidSdkDirectory)' == '' and Exists('$(_UserHome)/Library/Android/sdk')">$(_UserHome)/Library/Android/sdk</AndroidSdkDirectory>
+    <JavaSdkDirectory Condition="'$(JavaSdkDirectory)' == '' and Exists('/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home')">/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home</JavaSdkDirectory>
+    <JavaSdkDirectory Condition="'$(JavaSdkDirectory)' == '' and Exists('/Applications/Rider.app/Contents/jbr/Contents/Home')">/Applications/Rider.app/Contents/jbr/Contents/Home</JavaSdkDirectory>
+    <NuGetAudit Condition="'$(NuGetAudit)' == ''">false</NuGetAudit>
+  </PropertyGroup>
+</Project>

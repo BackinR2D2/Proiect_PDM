@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:Proiect_Planificare_Buget.ViewModels"
+             x:Class="Proiect_Planificare_Buget.Pages.SettingsPage"
+             x:DataType="viewModels:SettingsPageViewModel"
+             Title="Setari">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Setari aplicatie"
+                       FontSize="28"
+                       FontFamily="OpenSansSemibold" />
+                <Label Text="Preferinte persistente pentru demo si pentru viitoarele iteratii."
+                       TextColor="{StaticResource Gray500}" />
+            </VerticalStackLayout>
+
+            <Border Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Entry Placeholder="Nume echipa / utilizator"
+                           Text="{Binding FullName}" />
+
+                    <Picker Title="Moneda implicita"
+                            ItemsSource="{Binding CurrencyOptions}"
+                            SelectedItem="{Binding SelectedCurrency}" />
+
+                    <Picker Title="Inceput de saptamana"
+                            ItemsSource="{Binding WeekDayOptions}"
+                            SelectedItem="{Binding SelectedWeekDay}" />
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="Sincronizare automata cursuri"
+                               VerticalOptions="Center" />
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding AutoSyncRates}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="Rotunjire pentru economii"
+                               VerticalOptions="Center" />
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding RoundUpSavings}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Zi de remindere" />
+                            <Label Grid.Column="1"
+                                   Text="{Binding ReminderDayLabel}" />
+                        </Grid>
+                        <Stepper Minimum="1"
+                                 Maximum="28"
+                                 Increment="1"
+                                 Value="{Binding ReminderDay}" />
+                    </VerticalStackLayout>
+
+                    <Button Text="Salveaza setarile"
+                            Command="{Binding SaveSettingsCommand}" />
+                    <Button Text="Reseteaza datele demo"
+                            Command="{Binding ResetSampleDataCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="16">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Persistenta locala"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="18" />
+                    <Label Text="Fisierul JSON in care sunt salvate datele aplicatiei:"
+                           TextColor="{StaticResource Gray500}" />
+                    <Label Text="{Binding StoragePath}"
+                           FontSize="12" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="{Binding StatusMessage}"
+                   TextColor="{StaticResource Gray500}"
+                   FontSize="12" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

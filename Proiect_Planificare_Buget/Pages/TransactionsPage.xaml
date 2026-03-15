@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:Proiect_Planificare_Buget.Models"
+             xmlns:viewModels="clr-namespace:Proiect_Planificare_Buget.ViewModels"
+             x:Class="Proiect_Planificare_Buget.Pages.TransactionsPage"
+             x:Name="TransactionsPageRoot"
+             x:DataType="viewModels:TransactionsPageViewModel"
+             Title="Tranzactii">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Tranzactii"
+                       FontSize="28"
+                       FontFamily="OpenSansSemibold" />
+                <Label Text="Adauga rapid venituri si cheltuieli, apoi filtreaza istoricul."
+                       TextColor="{StaticResource Gray500}" />
+            </VerticalStackLayout>
+
+            <Border Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Adauga tranzactie"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="18" />
+
+                    <Entry Placeholder="Titlu tranzactie"
+                           Text="{Binding EntryTitle}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Picker Grid.Column="0"
+                                Title="Tip"
+                                ItemsSource="{Binding EntryTypeOptions}"
+                                SelectedItem="{Binding SelectedEntryType}" />
+                        <Picker Grid.Column="1"
+                                Title="Categorie"
+                                ItemsSource="{Binding EntryCategoryOptions}"
+                                SelectedItem="{Binding SelectedEntryCategory}" />
+                    </Grid>
+
+                    <Entry Placeholder="Suma"
+                           Keyboard="Numeric"
+                           Text="{Binding EntryAmount}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <DatePicker Grid.Column="0"
+                                    Date="{Binding SelectedDate}" />
+                        <TimePicker Grid.Column="1"
+                                    Time="{Binding SelectedTime}" />
+                    </Grid>
+
+                    <Editor Placeholder="Detalii optionale"
+                            AutoSize="TextChanges"
+                            Text="{Binding Notes}" />
+
+                    <HorizontalStackLayout Spacing="10">
+                        <CheckBox IsChecked="{Binding IsRecurring}" />
+                        <Label Text="Tranzactie recurenta"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+
+                    <Button Text="Salveaza tranzactia"
+                            Command="{Binding AddTransactionCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <SearchBar Grid.Column="0"
+                           Placeholder="Cauta dupa titlu, categorie sau note"
+                           Text="{Binding SearchText}" />
+                <Picker Grid.Column="1"
+                        Title="Filtru tip"
+                        ItemsSource="{Binding FilterTypeOptions}"
+                        SelectedItem="{Binding SelectedFilterType}" />
+            </Grid>
+
+            <Picker Title="Categorie"
+                    ItemsSource="{Binding FilterCategoryOptions}"
+                    SelectedItem="{Binding SelectedFilterCategory}" />
+
+            <Label Text="{Binding StatusMessage}"
+                   TextColor="{StaticResource Gray500}"
+                   FontSize="12" />
+
+            <CollectionView ItemsSource="{Binding Transactions}"
+                            SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label Text="Nu exista tranzactii care sa corespunda filtrelor selectate." />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:TransactionRecord">
+                        <Border Padding="16" Margin="0,0,0,12">
+                            <VerticalStackLayout Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="3">
+                                        <Label Text="{Binding Title}"
+                                               FontFamily="OpenSansSemibold"
+                                               FontSize="16" />
+                                        <Label Text="{Binding Category}"
+                                               TextColor="{StaticResource Gray500}" />
+                                        <Label Text="{Binding DateLabel}"
+                                               FontSize="12"
+                                               TextColor="{StaticResource Gray500}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding AmountLabel}"
+                                           TextColor="{Binding AmountColor}"
+                                           FontFamily="OpenSansSemibold"
+                                           VerticalOptions="Start" />
+                                </Grid>
+
+                                <Label Text="{Binding Notes}"
+                                       TextColor="{StaticResource Gray500}" />
+
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                    <Border BackgroundColor="{Binding BadgeColor}" StrokeThickness="0" Padding="8">
+                                        <Label Text="{Binding TypeLabel}"
+                                               FontSize="12"
+                                               FontFamily="OpenSansSemibold" />
+                                    </Border>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding IsRecurring, StringFormat='Recursiv: {0}'}"
+                                           TextColor="{StaticResource Gray500}"
+                                           VerticalOptions="Center" />
+                                    <Button Grid.Column="2"
+                                            Text="Sterge"
+                                            Padding="10,6"
+                                            Command="{Binding Source={x:Reference TransactionsPageRoot}, Path=BindingContext.DeleteTransactionCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

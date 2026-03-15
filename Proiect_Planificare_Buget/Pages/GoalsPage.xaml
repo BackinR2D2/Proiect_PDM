@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:Proiect_Planificare_Buget.Models"
+             xmlns:viewModels="clr-namespace:Proiect_Planificare_Buget.ViewModels"
+             x:Class="Proiect_Planificare_Buget.Pages.GoalsPage"
+             x:DataType="viewModels:GoalsPageViewModel"
+             x:Name="GoalsPageRoot"
+             Title="Obiective">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Obiective de economisire"
+                       FontSize="28"
+                       FontFamily="OpenSansSemibold" />
+                <Label Text="Planifica fondul de urgenta, vacantele si achizitiile importante."
+                       TextColor="{StaticResource Gray500}" />
+            </VerticalStackLayout>
+
+            <Border Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Adauga sau editeaza obiectiv"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="18" />
+
+                    <Entry Placeholder="Titlu obiectiv"
+                           Text="{Binding GoalTitle}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Entry Grid.Column="0"
+                               Placeholder="Suma tinta"
+                               Keyboard="Numeric"
+                               Text="{Binding TargetAmount}" />
+                        <Entry Grid.Column="1"
+                               Placeholder="Economisit pana acum"
+                               Keyboard="Numeric"
+                               Text="{Binding CurrentAmount}" />
+                    </Grid>
+
+                    <DatePicker Date="{Binding Deadline}" />
+
+                    <HorizontalStackLayout Spacing="10">
+                        <CheckBox IsChecked="{Binding IsPinned}" />
+                        <Label Text="Fixeaza obiectivul in prim-plan"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button Grid.Column="0"
+                                Text="Salveaza"
+                                Command="{Binding SaveGoalCommand}" />
+                        <Button Grid.Column="1"
+                                Text="Goleste formular"
+                                Command="{Binding ResetFormCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="{Binding StatusMessage}"
+                   TextColor="{StaticResource Gray500}"
+                   FontSize="12" />
+
+            <CollectionView ItemsSource="{Binding Goals}"
+                            SelectionMode="Single"
+                            SelectedItem="{Binding SelectedGoal}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nu exista obiective salvate." />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:SavingsGoal">
+                        <Border Padding="16" Margin="0,0,0,12">
+                            <VerticalStackLayout Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="3">
+                                        <Label Text="{Binding Title}"
+                                               FontFamily="OpenSansSemibold"
+                                               FontSize="16" />
+                                        <Label Text="{Binding DeadlineLabel, StringFormat='Termen: {0}'}"
+                                               TextColor="{StaticResource Gray500}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding StatusLabel}"
+                                           TextColor="{Binding AccentColor}" />
+                                </Grid>
+
+                                <ProgressBar Progress="{Binding Progress}"
+                                             ProgressColor="{Binding AccentColor}" />
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <Label Text="{Binding ProgressLabel}" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding IsPinned, StringFormat='Prioritar: {0}'}"
+                                           TextColor="{StaticResource Gray500}" />
+                                </Grid>
+
+                                <Button Text="Sterge"
+                                        Command="{Binding Source={x:Reference GoalsPageRoot}, Path=BindingContext.DeleteGoalCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

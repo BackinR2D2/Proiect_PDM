@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:Proiect_Planificare_Buget.Models"
+             xmlns:viewModels="clr-namespace:Proiect_Planificare_Buget.ViewModels"
+             x:Class="Proiect_Planificare_Buget.Pages.BudgetsPage"
+             x:DataType="viewModels:BudgetsPageViewModel"
+             Title="Bugete">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Bugete lunare"
+                       FontSize="28"
+                       FontFamily="OpenSansSemibold" />
+                <Label Text="Configureaza limite pe categorii si urmareste daca te apropii de prag."
+                       TextColor="{StaticResource Gray500}" />
+            </VerticalStackLayout>
+
+            <Border Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Editeaza buget"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="18" />
+
+                    <Picker Title="Categorie"
+                            ItemsSource="{Binding BudgetCategoryOptions}"
+                            SelectedItem="{Binding SelectedBudgetCategory}" />
+
+                    <Entry Placeholder="Limita lunara"
+                           Keyboard="Numeric"
+                           Text="{Binding MonthlyLimit}" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Prag de alerta" />
+                            <Label Grid.Column="1"
+                                   Text="{Binding AlertThresholdLabel}" />
+                        </Grid>
+                        <Slider Minimum="50"
+                                Maximum="100"
+                                Value="{Binding AlertThresholdPercent}" />
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button Grid.Column="0"
+                                Text="Salveaza"
+                                Command="{Binding SaveBudgetCommand}" />
+                        <Button Grid.Column="1"
+                                Text="Reseteaza formular"
+                                Command="{Binding ResetFormCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="{Binding StatusMessage}"
+                   TextColor="{StaticResource Gray500}"
+                   FontSize="12" />
+
+            <CollectionView ItemsSource="{Binding Budgets}"
+                            SelectionMode="Single"
+                            SelectedItem="{Binding SelectedBudget}">
+                <CollectionView.EmptyView>
+                    <Label Text="Nu exista bugete configurate." />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:BudgetStatusItem">
+                        <Border Padding="16" Margin="0,0,0,12">
+                            <VerticalStackLayout Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding Name}"
+                                           FontFamily="OpenSansSemibold"
+                                           FontSize="16" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding StatusLabel}"
+                                           TextColor="{Binding AccentColor}" />
+                                </Grid>
+
+                                <ProgressBar Progress="{Binding Progress}"
+                                             ProgressColor="{Binding AccentColor}" />
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="3">
+                                        <Label Text="{Binding ProgressLabel}" />
+                                        <Label Text="{Binding RemainingLabel}"
+                                               TextColor="{Binding AccentColor}" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                        <Label Text="Prag"
+                                               TextColor="{StaticResource Gray500}" />
+                                        <Label Text="{Binding AlertThreshold, StringFormat='{0:P0}'}"
+                                               FontFamily="OpenSansSemibold" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
