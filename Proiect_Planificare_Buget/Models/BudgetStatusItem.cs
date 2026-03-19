@@ -20,6 +20,14 @@ public sealed class BudgetStatusItem
 
     public string ProgressLabel => $"{Spent:N2} / {MonthlyLimit:N2} RON";
 
+    public string SpentLabel => $"{Spent:N2} RON";
+
+    public string RemainingAmountLabel => $"{Math.Abs(Remaining):N2} RON";
+
+    public string RemainingCaption => IsOverBudget ? "Depasit cu" : "Ramas";
+
+    public string LimitLabel => $"Limita lunara: {MonthlyLimit:N2} RON";
+
     public string RemainingLabel => IsOverBudget
         ? $"{Math.Abs(Remaining):N2} RON peste limita"
         : $"{Remaining:N2} RON disponibili";

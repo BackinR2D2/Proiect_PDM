@@ -91,22 +91,52 @@
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="models:BudgetStatusItem">
                             <Border Padding="16" Margin="0,0,0,12">
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="10">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                         <Label Text="{Binding Name}"
                                                FontFamily="OpenSansSemibold"
-                                               FontSize="16" />
-                                        <Label Text="{Binding StatusLabel}"
-                                               TextColor="{Binding AccentColor}" />
+                                               FontSize="16"
+                                               LineBreakMode="TailTruncation"
+                                               VerticalOptions="Center" />
+                                        <Border Grid.Column="1"
+                                                BackgroundColor="{Binding AccentColor}"
+                                                Padding="8,3"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="10" />
+                                            </Border.StrokeShape>
+                                            <Label Text="{Binding StatusLabel}"
+                                                   TextColor="White"
+                                                   FontSize="11"
+                                                   FontFamily="OpenSansSemibold" />
+                                        </Border>
                                     </Grid>
                                     <ProgressBar Progress="{Binding Progress}"
                                                  ProgressColor="{Binding AccentColor}" />
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <Label Text="{Binding ProgressLabel}"
-                                               TextColor="{StaticResource Gray500}" />
-                                        <Label Text="{Binding RemainingLabel}"
-                                               TextColor="{Binding AccentColor}" />
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="Cheltuit"
+                                                   FontSize="11"
+                                                   TextColor="{StaticResource Gray500}" />
+                                            <Label Text="{Binding SpentLabel}"
+                                                   FontFamily="OpenSansSemibold"
+                                                   FontSize="14" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="End">
+                                            <Label Text="{Binding RemainingCaption}"
+                                                   FontSize="11"
+                                                   TextColor="{StaticResource Gray500}"
+                                                   HorizontalOptions="End" />
+                                            <Label Text="{Binding RemainingAmountLabel}"
+                                                   FontFamily="OpenSansSemibold"
+                                                   FontSize="14"
+                                                   TextColor="{Binding AccentColor}"
+                                                   HorizontalOptions="End" />
+                                        </VerticalStackLayout>
                                     </Grid>
+                                    <Label Text="{Binding LimitLabel}"
+                                           FontSize="12"
+                                           TextColor="{StaticResource Gray500}" />
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>
@@ -127,10 +157,23 @@
                         <DataTemplate x:DataType="models:TransactionRecord">
                             <Border Padding="14" Margin="0,0,0,10">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                                    <Border BackgroundColor="{Binding BadgeColor}" StrokeThickness="0" Padding="10">
-                                        <Label Text="{Binding TypeLabel}"
-                                               FontSize="12"
-                                               FontFamily="OpenSansSemibold" />
+                                    <Border BackgroundColor="{Binding BadgeColor}"
+                                            StrokeThickness="0"
+                                            Padding="8"
+                                            WidthRequest="44"
+                                            HeightRequest="44"
+                                            VerticalOptions="Center">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="14" />
+                                        </Border.StrokeShape>
+                                        <Label Text="{Binding TypeIcon}"
+                                               FontFamily="MaterialSymbols"
+                                               FontSize="22"
+                                               TextColor="{Binding BadgeTextColor}"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
                                     </Border>
                                     <VerticalStackLayout Grid.Column="1" Spacing="2">
                                         <Label Text="{Binding Title}"
