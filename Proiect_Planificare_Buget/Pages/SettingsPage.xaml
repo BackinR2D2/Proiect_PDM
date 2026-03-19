@@ -64,12 +64,12 @@
 
             <Border Padding="16">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Persistenta locala"
+                    <Label Text="Conexiune baza de date"
                            FontFamily="OpenSansSemibold"
                            FontSize="18" />
-                    <Label Text="Fisierul JSON in care sunt salvate datele aplicatiei:"
+                    <Label Text="Connection string catre SQL Server local. Modifica doar daca serverul tau are alt nume."
                            TextColor="{StaticResource Gray500}" />
-                    <Label Text="{Binding StoragePath}"
+                    <Entry Text="{Binding ConnectionString}"
                            FontSize="12" />
                 </VerticalStackLayout>
             </Border>

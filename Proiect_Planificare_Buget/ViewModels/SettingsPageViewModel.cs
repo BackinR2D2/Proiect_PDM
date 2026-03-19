@@ -29,7 +29,15 @@ public sealed class SettingsPageViewModel : ViewModelBase
 
     public IReadOnlyList<string> WeekDayOptions => _budgetDataService.WeekDayOptions;
 
-    public string StoragePath => _budgetDataService.StoragePath;
+    public string ConnectionString
+    {
+        get => _budgetDataService.ConnectionString;
+        set
+        {
+            _budgetDataService.ConnectionString = value;
+            OnPropertyChanged();
+        }
+    }
 
     public string FullName
     {
