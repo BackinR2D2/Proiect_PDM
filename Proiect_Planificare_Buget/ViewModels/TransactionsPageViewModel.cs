@@ -14,21 +14,20 @@ public sealed class TransactionsPageViewModel : ViewModelBase
     private string _entryTitle = string.Empty;
     private string _entryAmount = string.Empty;
     private string _selectedEntryType = "Cheltuiala";
-    private string _selectedEntryCategory = "Mancare";
+    private string _selectedEntryCategory = string.Empty;
     private DateTime _selectedDate = DateTime.Today;
     private TimeSpan _selectedTime = DateTime.Now.TimeOfDay;
     private string _notes = string.Empty;
     private bool _isRecurring;
 
+    private List<string> _expenseCategories = [];
+    private List<string> _incomeCategories = [];
     private List<TransactionRecord> _allTransactions = [];
 
     public TransactionsPageViewModel(BudgetDataService budgetDataService)
     {
         _budgetDataService = budgetDataService;
-        _budgetDataService.DataChanged += async (_, _) => await LoadAsync();
-
-        FilterTypeOptions = ["Toate", "Cheltuieli", "Venituri"];
-        FilterCategoryOptions = ["Toate", .. _budgetDataService.ExpenseCategories, .. _budgetDataService.IncomeCategories];
+        _budgetDataService.DataChanged += async (_, _) => await HandleDataChangedAsync(LoadAsync);
 
         AddTransactionCommand = new Command(async () => await AddTransactionAsync());
         DeleteTransactionCommand = new Command<TransactionRecord>(async transaction => await DeleteTransactionAsync(transaction));
@@ -36,15 +35,13 @@ public sealed class TransactionsPageViewModel : ViewModelBase
 
     public ObservableCollection<TransactionRecord> Transactions { get; } = [];
 
-    public IReadOnlyList<string> FilterTypeOptions { get; }
+    public IReadOnlyList<string> FilterTypeOptions { get; } = ["Toate", "Cheltuieli", "Venituri"];
 
-    public IReadOnlyList<string> FilterCategoryOptions { get; }
+    public ObservableCollection<string> FilterCategoryOptions { get; } = ["Toate"];
 
     public IReadOnlyList<string> EntryTypeOptions { get; } = ["Cheltuiala", "Venit"];
 
-    public IEnumerable<string> EntryCategoryOptions => SelectedEntryType == "Cheltuiala"
-        ? _budgetDataService.ExpenseCategories
-        : _budgetDataService.IncomeCategories;
+    public ObservableCollection<string> EntryCategoryOptions { get; } = [];
 
     public ICommand AddTransactionCommand { get; }
 
@@ -105,8 +102,7 @@ public sealed class TransactionsPageViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedEntryType, value))
             {
-                SelectedEntryCategory = EntryCategoryOptions.First();
-                OnPropertyChanged(nameof(EntryCategoryOptions));
+                SyncEntryCategoryOptions();
             }
         }
     }
@@ -147,6 +143,19 @@ public sealed class TransactionsPageViewModel : ViewModelBase
         {
             var snapshot = await _budgetDataService.GetSnapshotAsync();
             _allTransactions = snapshot.Transactions.OrderByDescending(transaction => transaction.OccurredOn).ToList();
+
+            _expenseCategories = snapshot.Categories
+                .Where(category => category.Kind == CategoryKind.Expense)
+                .Select(category => category.Name)
+                .ToList();
+
+            _incomeCategories = snapshot.Categories
+                .Where(category => category.Kind == CategoryKind.Income)
+                .Select(category => category.Name)
+                .ToList();
+
+            RefreshFilterCategories();
+            SyncEntryCategoryOptions();
             ApplyFilters();
         }, errorPrefix: "Nu am putut incarca tranzactiile");
     }
@@ -155,6 +164,9 @@ public sealed class TransactionsPageViewModel : ViewModelBase
     {
         await RunBusyOperationAsync(async () =>
         {
+            if (string.IsNullOrWhiteSpace(SelectedEntryCategory))
+                throw new InvalidOperationException("Adauga mai intai o categorie potrivita in pagina Categorii.");
+
             var transactionType = SelectedEntryType == "Cheltuiala" ? TransactionType.Expense : TransactionType.Income;
 
             await _budgetDataService.AddTransactionAsync(
@@ -183,20 +195,53 @@ public sealed class TransactionsPageViewModel : ViewModelBase
             return;
         }
 
-        await RunBusyOperationAsync(
-            async () => await _budgetDataService.DeleteTransactionAsync(transaction.Id),
-            successMessage: "Tranzactia a fost stearsa.",
-            errorPrefix: "Nu am putut sterge tranzactia");
+        await RunBusyOperationAsync(async () =>
+        {
+            await _budgetDataService.DeleteTransactionAsync(transaction.Id);
+
+            if (SelectedEntryCategory == transaction.Category && !EntryCategoryOptions.Contains(SelectedEntryCategory))
+            {
+                SelectedEntryCategory = EntryCategoryOptions.FirstOrDefault() ?? string.Empty;
+            }
+        }, successMessage: "Tranzactia a fost stearsa.", errorPrefix: "Nu am putut sterge tranzactia");
+    }
+
+    private void RefreshFilterCategories()
+    {
+        var selectedCategory = SelectedFilterCategory;
+        var allCategories = _expenseCategories.Concat(_incomeCategories)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(category => category)
+            .ToList();
+
+        FilterCategoryOptions.Clear();
+        FilterCategoryOptions.Add("Toate");
+        foreach (var category in allCategories)
+        {
+            FilterCategoryOptions.Add(category);
+        }
+
+        SelectedFilterCategory = FilterCategoryOptions.Contains(selectedCategory) ? selectedCategory : "Toate";
+    }
+
+    private void SyncEntryCategoryOptions()
+    {
+        var currentOptions = SelectedEntryType == "Cheltuiala" ? _expenseCategories : _incomeCategories;
+        var previousSelection = SelectedEntryCategory;
+
+        EntryCategoryOptions.Clear();
+        foreach (var category in currentOptions)
+        {
+            EntryCategoryOptions.Add(category);
+        }
+
+        SelectedEntryCategory = EntryCategoryOptions.Contains(previousSelection)
+            ? previousSelection
+            : EntryCategoryOptions.FirstOrDefault() ?? string.Empty;
     }
 
     private void ApplyFilters()
     {
-        if (_allTransactions.Count == 0)
-        {
-            Transactions.Clear();
-            return;
-        }
-
         IEnumerable<TransactionRecord> filtered = _allTransactions;
 
         if (!string.IsNullOrWhiteSpace(SearchText))

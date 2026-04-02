@@ -28,11 +28,25 @@
             Route="budgets" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Categorii">
+        <ShellContent
+            Title="Categorii"
+            ContentTemplate="{DataTemplate pages:CategoriesPage}"
+            Route="categories" />
+    </FlyoutItem>
+
     <FlyoutItem Title="Obiective">
         <ShellContent
             Title="Obiective"
             ContentTemplate="{DataTemplate pages:GoalsPage}"
             Route="goals" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Rapoarte">
+        <ShellContent
+            Title="Rapoarte"
+            ContentTemplate="{DataTemplate pages:ReportsPage}"
+            Route="reports" />
     </FlyoutItem>
 
     <FlyoutItem Title="Insight-uri">

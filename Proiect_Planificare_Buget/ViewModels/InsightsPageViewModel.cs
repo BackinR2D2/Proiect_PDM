@@ -22,6 +22,7 @@ public sealed class InsightsPageViewModel : ViewModelBase
         _budgetDataService = budgetDataService;
         _exchangeRateService = exchangeRateService;
         _xmlReportService = xmlReportService;
+        _budgetDataService.DataChanged += async (_, _) => await HandleDataChangedAsync(LoadAsync);
 
         RefreshRatesCommand = new Command(async () => await RefreshRatesAsync());
         ExportReportCommand = new Command(async () => await ExportReportAsync());

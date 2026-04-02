@@ -19,7 +19,7 @@ public sealed class GoalsPageViewModel : ViewModelBase
     public GoalsPageViewModel(BudgetDataService budgetDataService)
     {
         _budgetDataService = budgetDataService;
-        _budgetDataService.DataChanged += async (_, _) => await LoadAsync();
+        _budgetDataService.DataChanged += async (_, _) => await HandleDataChangedAsync(LoadAsync);
 
         SaveGoalCommand = new Command(async () => await SaveGoalAsync());
         DeleteGoalCommand = new Command<SavingsGoal>(async goal => await DeleteGoalAsync(goal));
@@ -111,10 +111,15 @@ public sealed class GoalsPageViewModel : ViewModelBase
             return;
         }
 
-        await RunBusyOperationAsync(
-            async () => await _budgetDataService.DeleteGoalAsync(goal.Id),
-            successMessage: "Obiectivul a fost sters.",
-            errorPrefix: "Nu am putut sterge obiectivul");
+        await RunBusyOperationAsync(async () =>
+        {
+            await _budgetDataService.DeleteGoalAsync(goal.Id);
+
+            if (_editingGoalId == goal.Id)
+            {
+                ResetForm();
+            }
+        }, successMessage: "Obiectivul a fost sters.", errorPrefix: "Nu am putut sterge obiectivul");
     }
 
     private void ResetForm()

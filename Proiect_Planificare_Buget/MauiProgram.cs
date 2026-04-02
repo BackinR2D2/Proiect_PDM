@@ -27,7 +27,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<MainPageViewModel>();
         builder.Services.AddSingleton<TransactionsPageViewModel>();
         builder.Services.AddSingleton<BudgetsPageViewModel>();
+        builder.Services.AddSingleton<CategoriesPageViewModel>();
         builder.Services.AddSingleton<GoalsPageViewModel>();
+        builder.Services.AddSingleton<ReportsPageViewModel>();
         builder.Services.AddSingleton<InsightsPageViewModel>();
         builder.Services.AddSingleton<SettingsPageViewModel>();
 

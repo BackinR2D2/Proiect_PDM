@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:Proiect_Planificare_Buget.Models"
+             xmlns:viewModels="clr-namespace:Proiect_Planificare_Buget.ViewModels"
+             x:Class="Proiect_Planificare_Buget.Pages.ReportsPage"
+             x:DataType="viewModels:ReportsPageViewModel"
+             Title="Rapoarte">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Rapoarte pe interval"
+                       FontSize="28"
+                       FontFamily="OpenSansSemibold" />
+                <Label Text="Construieste rezumate pe perioada pentru documentatia si demo-ul proiectului."
+                       TextColor="{StaticResource Gray500}" />
+            </VerticalStackLayout>
+
+            <Border Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Filtre raport"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="18" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <DatePicker Grid.Column="0"
+                                    Date="{Binding StartDate}" />
+                        <DatePicker Grid.Column="1"
+                                    Date="{Binding EndDate}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button Grid.Column="0"
+                                Text="Genereaza raport XML"
+                                Command="{Binding GenerateReportCommand}" />
+                        <Button Grid.Column="1"
+                                Text="Luna curenta"
+                                Command="{Binding CurrentMonthCommand}" />
+                    </Grid>
+
+                    <Label Text="{Binding ExportedReportPath}"
+                           FontSize="12"
+                           TextColor="{StaticResource Gray500}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
+                <Border Grid.Row="0" Grid.Column="0" BackgroundColor="#ECFDF5" Padding="16">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Venituri"
+                               TextColor="#047857"
+                               FontSize="13" />
+                        <Label Text="{Binding IncomeSummary}"
+                               FontSize="22"
+                               FontFamily="OpenSansSemibold"
+                               TextColor="#065F46" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Row="0" Grid.Column="1" BackgroundColor="#FEF2F2" Padding="16">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Cheltuieli"
+                               TextColor="#B91C1C"
+                               FontSize="13" />
+                        <Label Text="{Binding ExpenseSummary}"
+                               FontSize="22"
+                               FontFamily="OpenSansSemibold"
+                               TextColor="#991B1B" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Row="1" Grid.Column="0" BackgroundColor="#EFF6FF" Padding="16">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Sold"
+                               TextColor="#1D4ED8"
+                               FontSize="13" />
+                        <Label Text="{Binding NetSummary}"
+                               FontSize="22"
+                               FontFamily="OpenSansSemibold"
+                               TextColor="#1E3A8A" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Row="1" Grid.Column="1" BackgroundColor="#FFF7ED" Padding="16">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Tranzactii"
+                               TextColor="#C2410C"
+                               FontSize="13" />
+                        <Label Text="{Binding TransactionCountSummary}"
+                               FontSize="22"
+                               FontFamily="OpenSansSemibold"
+                               TextColor="#9A3412" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Rezumat pe categorii"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18" />
+
+                <CollectionView ItemsSource="{Binding CategoryBreakdown}"
+                                SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <Label Text="Nu exista tranzactii pe intervalul selectat." />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:ReportCategoryItem">
+                            <Border Padding="16" Margin="0,0,0,10">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <Label Text="{Binding Name}"
+                                               FontFamily="OpenSansSemibold"
+                                               FontSize="16" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding NetLabel}"
+                                               TextColor="{Binding NetColor}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                        <Label Text="{Binding IncomeLabel}"
+                                               TextColor="#0F766E" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding ExpenseLabel}"
+                                               TextColor="#B91C1C" />
+                                        <Label Grid.Column="2"
+                                               Text="{Binding TransactionCount, StringFormat='Nr: {0}'}"
+                                               TextColor="{StaticResource Gray500}" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Tranzactii din perioada"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18" />
+
+                <CollectionView ItemsSource="{Binding TransactionsInRange}"
+                                SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <Label Text="Nu exista tranzactii in perioada selectata." />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:TransactionRecord">
+                            <Border Padding="14" Margin="0,0,0,10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="{Binding Title}"
+                                               FontFamily="OpenSansSemibold" />
+                                        <Label Text="{Binding Category}"
+                                               TextColor="{StaticResource Gray500}" />
+                                        <Label Text="{Binding DateLabel}"
+                                               FontSize="12"
+                                               TextColor="{StaticResource Gray500}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding AmountLabel}"
+                                           TextColor="{Binding AmountColor}"
+                                           FontFamily="OpenSansSemibold"
+                                           VerticalOptions="Start" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+
+            <Label Text="{Binding StatusMessage}"
+                   TextColor="{StaticResource Gray500}"
+                   FontSize="12" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

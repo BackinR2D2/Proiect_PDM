@@ -8,7 +8,7 @@ public sealed class BudgetsPageViewModel : ViewModelBase
 {
     private readonly BudgetDataService _budgetDataService;
 
-    private string _selectedBudgetCategory = "Mancare";
+    private string _selectedBudgetCategory = string.Empty;
     private string _monthlyLimit = string.Empty;
     private double _alertThresholdPercent = 80;
     private BudgetStatusItem? _selectedBudget;
@@ -16,18 +16,20 @@ public sealed class BudgetsPageViewModel : ViewModelBase
     public BudgetsPageViewModel(BudgetDataService budgetDataService)
     {
         _budgetDataService = budgetDataService;
-        _budgetDataService.DataChanged += async (_, _) => await LoadAsync();
+        _budgetDataService.DataChanged += async (_, _) => await HandleDataChangedAsync(LoadAsync);
 
-        BudgetCategoryOptions = _budgetDataService.ExpenseCategories;
         SaveBudgetCommand = new Command(async () => await SaveBudgetAsync());
+        DeleteBudgetCommand = new Command<BudgetStatusItem>(async budget => await DeleteBudgetAsync(budget));
         ResetFormCommand = new Command(ResetForm);
     }
 
     public ObservableCollection<BudgetStatusItem> Budgets { get; } = [];
 
-    public IReadOnlyList<string> BudgetCategoryOptions { get; }
+    public ObservableCollection<string> BudgetCategoryOptions { get; } = [];
 
     public ICommand SaveBudgetCommand { get; }
+
+    public ICommand DeleteBudgetCommand { get; }
 
     public ICommand ResetFormCommand { get; }
 
@@ -76,6 +78,18 @@ public sealed class BudgetsPageViewModel : ViewModelBase
         return RunBusyOperationAsync(async () =>
         {
             var snapshot = await _budgetDataService.GetSnapshotAsync();
+            var selectedBudgetName = SelectedBudget?.Name;
+            var expenseCategories = snapshot.Categories
+                .Where(category => category.Kind == CategoryKind.Expense)
+                .Select(category => category.Name)
+                .ToList();
+
+            BudgetCategoryOptions.Clear();
+            foreach (var category in expenseCategories)
+            {
+                BudgetCategoryOptions.Add(category);
+            }
+
             var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
             var monthEnd = monthStart.AddMonths(1);
             var monthTransactions = snapshot.Transactions
@@ -101,7 +115,15 @@ public sealed class BudgetsPageViewModel : ViewModelBase
                 Budgets.Add(budget);
             }
 
-            if (string.IsNullOrWhiteSpace(MonthlyLimit) && budgetStatuses.Count > 0)
+            SelectedBudget = budgetStatuses.FirstOrDefault(budget =>
+                string.Equals(budget.Name, selectedBudgetName, StringComparison.OrdinalIgnoreCase));
+
+            if (!BudgetCategoryOptions.Contains(SelectedBudgetCategory))
+            {
+                SelectedBudgetCategory = BudgetCategoryOptions.FirstOrDefault() ?? string.Empty;
+            }
+
+            if (SelectedBudget is null && string.IsNullOrWhiteSpace(MonthlyLimit) && budgetStatuses.Count > 0)
             {
                 SelectedBudgetCategory = budgetStatuses[0].Name;
                 MonthlyLimit = budgetStatuses[0].MonthlyLimit.ToString("N2");
@@ -114,15 +136,34 @@ public sealed class BudgetsPageViewModel : ViewModelBase
     {
         await RunBusyOperationAsync(async () =>
         {
+            if (string.IsNullOrWhiteSpace(SelectedBudgetCategory))
+                throw new InvalidOperationException("Adauga mai intai o categorie de cheltuiala in pagina Categorii.");
+
             await _budgetDataService.SaveBudgetAsync(SelectedBudgetCategory, MonthlyLimit, AlertThresholdPercent);
             ResetForm();
         }, successMessage: "Bugetul a fost actualizat.", errorPrefix: "Nu am putut salva bugetul");
     }
 
+    private async Task DeleteBudgetAsync(BudgetStatusItem? budget)
+    {
+        if (budget is null)
+            return;
+
+        await RunBusyOperationAsync(async () =>
+        {
+            await _budgetDataService.DeleteBudgetAsync(budget.Name);
+
+            if (SelectedBudget?.Name == budget.Name)
+            {
+                ResetForm();
+            }
+        }, successMessage: "Bugetul a fost sters.", errorPrefix: "Nu am putut sterge bugetul");
+    }
+
     private void ResetForm()
     {
         SelectedBudget = null;
-        SelectedBudgetCategory = BudgetCategoryOptions.First();
+        SelectedBudgetCategory = BudgetCategoryOptions.FirstOrDefault() ?? string.Empty;
         MonthlyLimit = string.Empty;
         AlertThresholdPercent = 80;
     }

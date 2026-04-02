@@ -8,6 +8,8 @@ public sealed class BudgetAppData
 
     public List<SavingsGoal> Goals { get; set; } = [];
 
+    public List<CategoryDefinition> Categories { get; set; } = [];
+
     public AppSettings Settings { get; set; } = new();
 
     public static BudgetAppData CreateSample()
@@ -24,6 +26,22 @@ public sealed class BudgetAppData
                 AutoSyncRates = true,
                 ReminderDay = 7
             },
+            Categories =
+            [
+                new CategoryDefinition { Name = "Mancare", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Transport", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Utilitati", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Sanatate", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Educatie", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Timp liber", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Cumparaturi", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Economii", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Altele", Kind = CategoryKind.Expense },
+                new CategoryDefinition { Name = "Salariu", Kind = CategoryKind.Income },
+                new CategoryDefinition { Name = "Freelance", Kind = CategoryKind.Income },
+                new CategoryDefinition { Name = "Bonus", Kind = CategoryKind.Income },
+                new CategoryDefinition { Name = "Cadou", Kind = CategoryKind.Income }
+            ],
             Budgets =
             [
                 new BudgetCategory { Name = "Mancare", MonthlyLimit = 1300m, AlertThreshold = 0.8m },

@@ -1,44 +1,20 @@
 using System.Globalization;
-using Microsoft.Data.SqlClient;
+using System.Text.Json;
 using Proiect_Planificare_Buget.Models;
 
 namespace Proiect_Planificare_Buget.Services;
 
-public sealed class BudgetDataService
+public sealed partial class BudgetDataService
 {
-    private const string DefaultConnectionString =
-        "Server=localhost;Database=BudgetPlannerDB;Trusted_Connection=True;TrustServerCertificate=True;";
+    private const string DatabaseFileName = "budget-planner.sqlite3";
+    private const string DebugStatusFileName = "budget-db-status.txt";
 
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+
     private BudgetAppData? _cache;
 
     public event EventHandler? DataChanged;
-
-    public string ConnectionString
-    {
-        get => Preferences.Default.Get("db_connection_string", DefaultConnectionString);
-        set => Preferences.Default.Set("db_connection_string", value);
-    }
-
-    public IReadOnlyList<string> ExpenseCategories { get; } =
-    [
-        "Mancare",
-        "Transport",
-        "Utilitati",
-        "Sanatate",
-        "Educatie",
-        "Timp liber",
-        "Cumparaturi",
-        "Economii"
-    ];
-
-    public IReadOnlyList<string> IncomeCategories { get; } =
-    [
-        "Salariu",
-        "Freelance",
-        "Bonus",
-        "Cadou"
-    ];
 
     public IReadOnlyList<string> SupportedCurrencies { get; } = ["RON", "EUR", "USD"];
 
@@ -53,9 +29,9 @@ public sealed class BudgetDataService
         "Duminica"
     ];
 
-    // ----------------------------------------------------------------
-    //  Public API
-    // ----------------------------------------------------------------
+    public string StorageEngine => "SQLite";
+
+    public string DatabasePath => Path.Combine(FileSystem.AppDataDirectory, DatabaseFileName);
 
     public async Task<BudgetAppData> GetSnapshotAsync()
     {
@@ -87,51 +63,34 @@ public sealed class BudgetDataService
         if (!TryParseAmount(amountText, out var amount) || amount <= 0)
             throw new InvalidOperationException("Introdu o suma valida mai mare decat zero.");
 
-        var transaction = new TransactionRecord
+        var normalizedCategory = NormalizeName(category);
+        if (string.IsNullOrWhiteSpace(normalizedCategory))
+            throw new InvalidOperationException("Selecteaza o categorie valida.");
+
+        await MutateAsync(data =>
         {
-            Title = title.Trim(),
-            Category = category,
-            Amount = amount,
-            Type = type,
-            OccurredOn = selectedDate.Date.Add(selectedTime),
-            Notes = notes.Trim(),
-            IsRecurring = isRecurring
-        };
-
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
-
-        const string sql = """
-            INSERT INTO Transactions (Id, Title, Category, Type, Amount, OccurredOn, Notes, IsRecurring)
-            VALUES (@Id, @Title, @Category, @Type, @Amount, @OccurredOn, @Notes, @IsRecurring)
-            """;
-
-        await using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Id", transaction.Id);
-        cmd.Parameters.AddWithValue("@Title", transaction.Title);
-        cmd.Parameters.AddWithValue("@Category", transaction.Category);
-        cmd.Parameters.AddWithValue("@Type", (int)transaction.Type);
-        cmd.Parameters.AddWithValue("@Amount", transaction.Amount);
-        cmd.Parameters.AddWithValue("@OccurredOn", transaction.OccurredOn);
-        cmd.Parameters.AddWithValue("@Notes", transaction.Notes);
-        cmd.Parameters.AddWithValue("@IsRecurring", transaction.IsRecurring);
-        await cmd.ExecuteNonQueryAsync();
-
-        _cache = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+            EnsureCategoryExists(data, normalizedCategory, ToCategoryKind(type));
+            data.Transactions.Add(new TransactionRecord
+            {
+                Title = title.Trim(),
+                Category = normalizedCategory,
+                Amount = amount,
+                Type = type,
+                OccurredOn = selectedDate.Date.Add(selectedTime),
+                Notes = notes.Trim(),
+                IsRecurring = isRecurring
+            });
+        });
     }
 
     public async Task DeleteTransactionAsync(Guid id)
     {
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
-
-        await using var cmd = new SqlCommand("DELETE FROM Transactions WHERE Id = @Id", conn);
-        cmd.Parameters.AddWithValue("@Id", id);
-        await cmd.ExecuteNonQueryAsync();
-
-        _cache = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+        await MutateAsync(data =>
+        {
+            var removed = data.Transactions.RemoveAll(transaction => transaction.Id == id);
+            if (removed == 0)
+                throw new InvalidOperationException("Tranzactia selectata nu mai exista.");
+        });
     }
 
     public async Task SaveBudgetAsync(string category, string monthlyLimitText, double alertThresholdPercent)
@@ -139,26 +98,52 @@ public sealed class BudgetDataService
         if (!TryParseAmount(monthlyLimitText, out var monthlyLimit) || monthlyLimit <= 0)
             throw new InvalidOperationException("Limita lunara trebuie sa fie o suma valida.");
 
+        var normalizedCategory = NormalizeName(category);
+        if (string.IsNullOrWhiteSpace(normalizedCategory))
+            throw new InvalidOperationException("Selecteaza o categorie valida pentru buget.");
+
         var alertThreshold = Math.Clamp((decimal)alertThresholdPercent / 100m, 0.1m, 1m);
 
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
+        await MutateAsync(data =>
+        {
+            EnsureCategoryExists(data, normalizedCategory, CategoryKind.Expense);
 
-        const string sql = """
-            IF EXISTS (SELECT 1 FROM BudgetCategories WHERE Name = @Name)
-                UPDATE BudgetCategories SET MonthlyLimit = @Limit, AlertThreshold = @Threshold WHERE Name = @Name
-            ELSE
-                INSERT INTO BudgetCategories (Name, MonthlyLimit, AlertThreshold) VALUES (@Name, @Limit, @Threshold)
-            """;
+            var existingBudget = data.Budgets.FirstOrDefault(budget =>
+                string.Equals(budget.Name, normalizedCategory, StringComparison.OrdinalIgnoreCase));
 
-        await using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Name", category);
-        cmd.Parameters.AddWithValue("@Limit", monthlyLimit);
-        cmd.Parameters.AddWithValue("@Threshold", alertThreshold);
-        await cmd.ExecuteNonQueryAsync();
+            if (existingBudget is null)
+            {
+                data.Budgets.Add(new BudgetCategory
+                {
+                    Name = normalizedCategory,
+                    MonthlyLimit = monthlyLimit,
+                    AlertThreshold = alertThreshold
+                });
+                return;
+            }
 
-        _cache = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+            existingBudget.Name = normalizedCategory;
+            existingBudget.MonthlyLimit = monthlyLimit;
+            existingBudget.AlertThreshold = alertThreshold;
+        });
+    }
+
+    public async Task DeleteBudgetAsync(string category)
+    {
+        var normalizedCategory = NormalizeName(category);
+        if (string.IsNullOrWhiteSpace(normalizedCategory))
+            throw new InvalidOperationException("Selecteaza un buget valid pentru stergere.");
+
+        await MutateAsync(data =>
+        {
+            var budget = data.Budgets.FirstOrDefault(item =>
+                string.Equals(item.Name, normalizedCategory, StringComparison.OrdinalIgnoreCase));
+
+            if (budget is null)
+                throw new InvalidOperationException("Bugetul selectat nu mai exista.");
+
+            data.Budgets.Remove(budget);
+        });
     }
 
     public async Task SaveGoalAsync(Guid? goalId, string title, string targetAmountText, string currentAmountText, DateTime deadline, bool isPinned)
@@ -172,268 +157,391 @@ public sealed class BudgetDataService
         if (!TryParseAmount(currentAmountText, out var currentAmount) || currentAmount < 0)
             throw new InvalidOperationException("Valoarea economisita trebuie sa fie valida.");
 
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
-
-        if (goalId.HasValue)
+        await MutateAsync(data =>
         {
-            const string sql = """
-                UPDATE SavingsGoals
-                SET Title = @Title, TargetAmount = @Target, CurrentAmount = @Current, Deadline = @Deadline, IsPinned = @IsPinned
-                WHERE Id = @Id
-                """;
-            await using var cmd = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@Id", goalId.Value);
-            cmd.Parameters.AddWithValue("@Title", title.Trim());
-            cmd.Parameters.AddWithValue("@Target", targetAmount);
-            cmd.Parameters.AddWithValue("@Current", currentAmount);
-            cmd.Parameters.AddWithValue("@Deadline", deadline.Date);
-            cmd.Parameters.AddWithValue("@IsPinned", isPinned);
-            await cmd.ExecuteNonQueryAsync();
-        }
-        else
-        {
-            const string sql = """
-                INSERT INTO SavingsGoals (Id, Title, TargetAmount, CurrentAmount, Deadline, IsPinned)
-                VALUES (@Id, @Title, @Target, @Current, @Deadline, @IsPinned)
-                """;
-            await using var cmd = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@Id", Guid.NewGuid());
-            cmd.Parameters.AddWithValue("@Title", title.Trim());
-            cmd.Parameters.AddWithValue("@Target", targetAmount);
-            cmd.Parameters.AddWithValue("@Current", currentAmount);
-            cmd.Parameters.AddWithValue("@Deadline", deadline.Date);
-            cmd.Parameters.AddWithValue("@IsPinned", isPinned);
-            await cmd.ExecuteNonQueryAsync();
-        }
+            var normalizedTitle = title.Trim();
+            var goal = goalId.HasValue
+                ? data.Goals.FirstOrDefault(item => item.Id == goalId.Value)
+                : null;
 
-        _cache = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+            if (goal is null)
+            {
+                data.Goals.Add(new SavingsGoal
+                {
+                    Title = normalizedTitle,
+                    TargetAmount = targetAmount,
+                    CurrentAmount = currentAmount,
+                    Deadline = deadline.Date,
+                    IsPinned = isPinned
+                });
+                return;
+            }
+
+            goal.Title = normalizedTitle;
+            goal.TargetAmount = targetAmount;
+            goal.CurrentAmount = currentAmount;
+            goal.Deadline = deadline.Date;
+            goal.IsPinned = isPinned;
+        });
     }
 
     public async Task DeleteGoalAsync(Guid id)
     {
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
-
-        await using var cmd = new SqlCommand("DELETE FROM SavingsGoals WHERE Id = @Id", conn);
-        cmd.Parameters.AddWithValue("@Id", id);
-        await cmd.ExecuteNonQueryAsync();
-
-        _cache = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+        await MutateAsync(data =>
+        {
+            var removed = data.Goals.RemoveAll(goal => goal.Id == id);
+            if (removed == 0)
+                throw new InvalidOperationException("Obiectivul selectat nu mai exista.");
+        });
     }
 
     public async Task SaveSettingsAsync(AppSettings settings)
     {
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
-
-        const string sql = """
-            UPDATE AppSettings SET
-                FullName        = @FullName,
-                DefaultCurrency = @Currency,
-                WeekStartsOn    = @WeekStart,
-                AutoSyncRates   = @AutoSync,
-                RoundUpSavings  = @RoundUp,
-                ReminderDay     = @ReminderDay
-            WHERE Id = 1
-            """;
-
-        await using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@FullName", settings.FullName);
-        cmd.Parameters.AddWithValue("@Currency", settings.DefaultCurrency);
-        cmd.Parameters.AddWithValue("@WeekStart", settings.WeekStartsOn);
-        cmd.Parameters.AddWithValue("@AutoSync", settings.AutoSyncRates);
-        cmd.Parameters.AddWithValue("@RoundUp", settings.RoundUpSavings);
-        cmd.Parameters.AddWithValue("@ReminderDay", settings.ReminderDay);
-        await cmd.ExecuteNonQueryAsync();
-
-        _cache = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+        await MutateAsync(data =>
+        {
+            data.Settings = new AppSettings
+            {
+                FullName = string.IsNullOrWhiteSpace(settings.FullName) ? "Echipa Budget Planner" : settings.FullName.Trim(),
+                DefaultCurrency = settings.DefaultCurrency,
+                WeekStartsOn = settings.WeekStartsOn,
+                AutoSyncRates = settings.AutoSyncRates,
+                RoundUpSavings = settings.RoundUpSavings,
+                ReminderDay = settings.ReminderDay
+            };
+        });
     }
 
     public async Task ResetSampleDataAsync()
     {
-        var sample = BudgetAppData.CreateSample();
-
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
-        await using var tx = conn.BeginTransaction();
-
-        try
+        await MutateAsync(data =>
         {
-            await ExecuteAsync("DELETE FROM Transactions", conn, tx);
-            await ExecuteAsync("DELETE FROM SavingsGoals", conn, tx);
-            await ExecuteAsync("DELETE FROM BudgetCategories", conn, tx);
-
-            foreach (var budget in sample.Budgets)
-            {
-                var cmd = new SqlCommand(
-                    "INSERT INTO BudgetCategories (Name, MonthlyLimit, AlertThreshold) VALUES (@Name, @Limit, @Threshold)",
-                    conn, tx);
-                cmd.Parameters.AddWithValue("@Name", budget.Name);
-                cmd.Parameters.AddWithValue("@Limit", budget.MonthlyLimit);
-                cmd.Parameters.AddWithValue("@Threshold", budget.AlertThreshold);
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            foreach (var goal in sample.Goals)
-            {
-                var cmd = new SqlCommand(
-                    "INSERT INTO SavingsGoals (Id, Title, TargetAmount, CurrentAmount, Deadline, IsPinned) VALUES (@Id, @Title, @Target, @Current, @Deadline, @Pinned)",
-                    conn, tx);
-                cmd.Parameters.AddWithValue("@Id", goal.Id);
-                cmd.Parameters.AddWithValue("@Title", goal.Title);
-                cmd.Parameters.AddWithValue("@Target", goal.TargetAmount);
-                cmd.Parameters.AddWithValue("@Current", goal.CurrentAmount);
-                cmd.Parameters.AddWithValue("@Deadline", goal.Deadline.Date);
-                cmd.Parameters.AddWithValue("@Pinned", goal.IsPinned);
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            foreach (var t in sample.Transactions)
-            {
-                var cmd = new SqlCommand(
-                    "INSERT INTO Transactions (Id, Title, Category, Type, Amount, OccurredOn, Notes, IsRecurring) VALUES (@Id, @Title, @Category, @Type, @Amount, @OccurredOn, @Notes, @Recurring)",
-                    conn, tx);
-                cmd.Parameters.AddWithValue("@Id", t.Id);
-                cmd.Parameters.AddWithValue("@Title", t.Title);
-                cmd.Parameters.AddWithValue("@Category", t.Category);
-                cmd.Parameters.AddWithValue("@Type", (int)t.Type);
-                cmd.Parameters.AddWithValue("@Amount", t.Amount);
-                cmd.Parameters.AddWithValue("@OccurredOn", t.OccurredOn);
-                cmd.Parameters.AddWithValue("@Notes", t.Notes);
-                cmd.Parameters.AddWithValue("@Recurring", t.IsRecurring);
-                await cmd.ExecuteNonQueryAsync();
-            }
-
-            await tx.CommitAsync();
-        }
-        catch
-        {
-            await tx.RollbackAsync();
-            throw;
-        }
-
-        _cache = null;
-        DataChanged?.Invoke(this, EventArgs.Empty);
+            var sample = BudgetAppData.CreateSample();
+            data.Settings = sample.Settings;
+            data.Categories = sample.Categories;
+            data.Budgets = sample.Budgets;
+            data.Goals = sample.Goals;
+            data.Transactions = sample.Transactions;
+        });
     }
 
-    public IEnumerable<string> GetCategoriesFor(TransactionType type) =>
-        type == TransactionType.Expense ? ExpenseCategories : IncomeCategories;
+    public async Task SaveCategoryAsync(Guid? categoryId, string name, CategoryKind kind)
+    {
+        var normalizedName = NormalizeName(name);
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            throw new InvalidOperationException("Numele categoriei este obligatoriu.");
 
-    // ----------------------------------------------------------------
-    //  Private helpers
-    // ----------------------------------------------------------------
+        await MutateAsync(data =>
+        {
+            var duplicate = data.Categories.FirstOrDefault(category =>
+                category.Id != categoryId
+                && string.Equals(category.Name, normalizedName, StringComparison.OrdinalIgnoreCase));
+
+            if (duplicate is not null)
+                throw new InvalidOperationException("Exista deja o categorie cu acest nume.");
+
+            if (!categoryId.HasValue)
+            {
+                data.Categories.Add(new CategoryDefinition
+                {
+                    Name = normalizedName,
+                    Kind = kind
+                });
+                return;
+            }
+
+            var categoryToEdit = data.Categories.FirstOrDefault(category => category.Id == categoryId.Value)
+                ?? throw new InvalidOperationException("Categoria selectata nu mai exista.");
+
+            var originalName = categoryToEdit.Name;
+            var originalKind = categoryToEdit.Kind;
+
+            if (originalKind != kind && IsCategoryInUse(data, categoryToEdit))
+                throw new InvalidOperationException("Nu poti schimba tipul unei categorii deja folosite in tranzactii sau bugete.");
+
+            categoryToEdit.Name = normalizedName;
+            categoryToEdit.Kind = kind;
+
+            if (!string.Equals(originalName, normalizedName, StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var transaction in data.Transactions.Where(transaction =>
+                             string.Equals(transaction.Category, originalName, StringComparison.OrdinalIgnoreCase)
+                             && ToCategoryKind(transaction.Type) == originalKind))
+                {
+                    transaction.Category = normalizedName;
+                }
+
+                if (originalKind == CategoryKind.Expense)
+                {
+                    foreach (var budget in data.Budgets.Where(budget =>
+                                 string.Equals(budget.Name, originalName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        budget.Name = normalizedName;
+                    }
+                }
+            }
+        });
+    }
+
+    public async Task DeleteCategoryAsync(Guid id)
+    {
+        await MutateAsync(data =>
+        {
+            var category = data.Categories.FirstOrDefault(item => item.Id == id)
+                ?? throw new InvalidOperationException("Categoria selectata nu mai exista.");
+
+            if (IsCategoryInUse(data, category))
+                throw new InvalidOperationException("Categoria este deja folosita in tranzactii sau bugete si nu poate fi stearsa.");
+
+            data.Categories.Remove(category);
+        });
+    }
+
+    private async Task MutateAsync(Action<BudgetAppData> mutation)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await EnsureInitializedAsync();
+            mutation(_cache!);
+            NormalizeData(_cache!);
+            await PersistSnapshotAsync(_cache!);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        DataChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     private async Task EnsureInitializedAsync()
     {
         if (_cache is not null)
             return;
 
-        await using var conn = new SqlConnection(ConnectionString);
-        await conn.OpenAsync();
+        await EnsureStorageReadyAsync();
 
-        var data = new BudgetAppData();
-
-        // Settings
-        await using (var cmd = new SqlCommand("SELECT * FROM AppSettings WHERE Id = 1", conn))
-        await using (var reader = await cmd.ExecuteReaderAsync())
+        var rawJson = await ReadSerializedStateAsync();
+        if (string.IsNullOrWhiteSpace(rawJson))
         {
-            if (await reader.ReadAsync())
-            {
-                data.Settings = new AppSettings
-                {
-                    FullName        = reader.GetString(reader.GetOrdinal("FullName")),
-                    DefaultCurrency = reader.GetString(reader.GetOrdinal("DefaultCurrency")),
-                    WeekStartsOn    = reader.GetString(reader.GetOrdinal("WeekStartsOn")),
-                    AutoSyncRates   = reader.GetBoolean(reader.GetOrdinal("AutoSyncRates")),
-                    RoundUpSavings  = reader.GetBoolean(reader.GetOrdinal("RoundUpSavings")),
-                    ReminderDay     = reader.GetInt32(reader.GetOrdinal("ReminderDay"))
-                };
-            }
+            _cache = BudgetAppData.CreateSample();
+            NormalizeData(_cache);
+            await PersistSnapshotAsync(_cache);
+            return;
         }
 
-        // Budgets
-        await using (var cmd = new SqlCommand("SELECT Name, MonthlyLimit, AlertThreshold FROM BudgetCategories", conn))
-        await using (var reader = await cmd.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                data.Budgets.Add(new BudgetCategory
-                {
-                    Name           = reader.GetString(reader.GetOrdinal("Name")),
-                    MonthlyLimit   = reader.GetDecimal(reader.GetOrdinal("MonthlyLimit")),
-                    AlertThreshold = reader.GetDecimal(reader.GetOrdinal("AlertThreshold"))
-                });
-            }
-        }
-
-        // Goals
-        await using (var cmd = new SqlCommand("SELECT * FROM SavingsGoals", conn))
-        await using (var reader = await cmd.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                data.Goals.Add(new SavingsGoal
-                {
-                    Id            = reader.GetGuid(reader.GetOrdinal("Id")),
-                    Title         = reader.GetString(reader.GetOrdinal("Title")),
-                    TargetAmount  = reader.GetDecimal(reader.GetOrdinal("TargetAmount")),
-                    CurrentAmount = reader.GetDecimal(reader.GetOrdinal("CurrentAmount")),
-                    Deadline      = reader.GetDateTime(reader.GetOrdinal("Deadline")),
-                    IsPinned      = reader.GetBoolean(reader.GetOrdinal("IsPinned"))
-                });
-            }
-        }
-
-        // Transactions
-        await using (var cmd = new SqlCommand("SELECT * FROM Transactions ORDER BY OccurredOn DESC", conn))
-        await using (var reader = await cmd.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                data.Transactions.Add(new TransactionRecord
-                {
-                    Id          = reader.GetGuid(reader.GetOrdinal("Id")),
-                    Title       = reader.GetString(reader.GetOrdinal("Title")),
-                    Category    = reader.GetString(reader.GetOrdinal("Category")),
-                    Type        = (TransactionType)reader.GetByte(reader.GetOrdinal("Type")),
-                    Amount      = reader.GetDecimal(reader.GetOrdinal("Amount")),
-                    OccurredOn  = reader.GetDateTime(reader.GetOrdinal("OccurredOn")),
-                    Notes       = reader.GetString(reader.GetOrdinal("Notes")),
-                    IsRecurring = reader.GetBoolean(reader.GetOrdinal("IsRecurring"))
-                });
-            }
-        }
-
-        _cache = data;
+        var loadedData = JsonSerializer.Deserialize<BudgetAppData>(rawJson, _jsonOptions) ?? BudgetAppData.CreateSample();
+        NormalizeData(loadedData);
+        _cache = loadedData;
+        await PersistSnapshotAsync(_cache);
     }
 
-    private static async Task ExecuteAsync(string sql, SqlConnection conn, SqlTransaction tx)
+    private async Task PersistSnapshotAsync(BudgetAppData data)
     {
-        await using var cmd = new SqlCommand(sql, conn, tx);
-        await cmd.ExecuteNonQueryAsync();
+        var json = JsonSerializer.Serialize(data, _jsonOptions);
+        await SaveSerializedStateAsync(json);
+        await WriteDebugStatusAsync(data);
     }
+
+    private async Task WriteDebugStatusAsync(BudgetAppData data)
+    {
+#if DEBUG
+        var filePath = Path.Combine(FileSystem.AppDataDirectory, DebugStatusFileName);
+        var lines = new[]
+        {
+            $"Timestamp={DateTime.Now:O}",
+            $"StorageEngine={StorageEngine}",
+            $"DatabasePath={DatabasePath}",
+            $"BudgetCount={data.Budgets.Count}",
+            $"GoalCount={data.Goals.Count}",
+            $"TransactionCount={data.Transactions.Count}",
+            $"CategoryCount={data.Categories.Count}",
+            $"FullName={data.Settings.FullName}"
+        };
+
+        await File.WriteAllLinesAsync(filePath, lines);
+#endif
+    }
+
+    private static void NormalizeData(BudgetAppData data)
+    {
+        data.Settings ??= new AppSettings();
+        data.Categories ??= [];
+        data.Budgets ??= [];
+        data.Goals ??= [];
+        data.Transactions ??= [];
+
+        foreach (var defaultCategory in GetDefaultCategories())
+        {
+            EnsureCategoryExists(data, defaultCategory.Name, defaultCategory.Kind);
+        }
+
+        foreach (var budget in data.Budgets)
+        {
+            budget.Name = NormalizeName(budget.Name);
+            EnsureCategoryExists(data, budget.Name, CategoryKind.Expense);
+        }
+
+        foreach (var transaction in data.Transactions)
+        {
+            transaction.Title = string.IsNullOrWhiteSpace(transaction.Title) ? "Tranzactie" : transaction.Title.Trim();
+            transaction.Category = NormalizeName(transaction.Category);
+            EnsureCategoryExists(data, transaction.Category, ToCategoryKind(transaction.Type));
+        }
+
+        data.Categories = data.Categories
+            .Where(category => !string.IsNullOrWhiteSpace(category.Name))
+            .Select(category =>
+            {
+                category.Id = category.Id == Guid.Empty ? Guid.NewGuid() : category.Id;
+                category.Name = NormalizeName(category.Name);
+                return category;
+            })
+            .GroupBy(category => category.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(category => category.Kind)
+            .ThenBy(category => category.Name)
+            .ToList();
+
+        data.Budgets = data.Budgets
+            .Where(budget => !string.IsNullOrWhiteSpace(budget.Name))
+            .GroupBy(budget => budget.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Last())
+            .OrderBy(budget => budget.Name)
+            .ToList();
+
+        data.Goals = data.Goals
+            .OrderByDescending(goal => goal.IsPinned)
+            .ThenBy(goal => goal.Deadline)
+            .ToList();
+
+        data.Transactions = data.Transactions
+            .OrderByDescending(transaction => transaction.OccurredOn)
+            .ToList();
+    }
+
+    private static IEnumerable<CategoryDefinition> GetDefaultCategories() =>
+    [
+        new() { Name = "Mancare", Kind = CategoryKind.Expense },
+        new() { Name = "Transport", Kind = CategoryKind.Expense },
+        new() { Name = "Utilitati", Kind = CategoryKind.Expense },
+        new() { Name = "Sanatate", Kind = CategoryKind.Expense },
+        new() { Name = "Educatie", Kind = CategoryKind.Expense },
+        new() { Name = "Timp liber", Kind = CategoryKind.Expense },
+        new() { Name = "Cumparaturi", Kind = CategoryKind.Expense },
+        new() { Name = "Economii", Kind = CategoryKind.Expense },
+        new() { Name = "Altele", Kind = CategoryKind.Expense },
+        new() { Name = "Salariu", Kind = CategoryKind.Income },
+        new() { Name = "Freelance", Kind = CategoryKind.Income },
+        new() { Name = "Bonus", Kind = CategoryKind.Income },
+        new() { Name = "Cadou", Kind = CategoryKind.Income }
+    ];
+
+    private static void EnsureCategoryExists(BudgetAppData data, string name, CategoryKind kind)
+    {
+        var normalizedName = NormalizeName(name);
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            return;
+
+        var existing = data.Categories.FirstOrDefault(category =>
+            string.Equals(category.Name, normalizedName, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+        {
+            existing.Kind = kind;
+            existing.Name = normalizedName;
+            return;
+        }
+
+        data.Categories.Add(new CategoryDefinition
+        {
+            Name = normalizedName,
+            Kind = kind
+        });
+    }
+
+    private static bool IsCategoryInUse(BudgetAppData data, CategoryDefinition category)
+    {
+        var usedInTransactions = data.Transactions.Any(transaction =>
+            string.Equals(transaction.Category, category.Name, StringComparison.OrdinalIgnoreCase)
+            && ToCategoryKind(transaction.Type) == category.Kind);
+
+        var usedInBudgets = category.Kind == CategoryKind.Expense
+            && data.Budgets.Any(budget => string.Equals(budget.Name, category.Name, StringComparison.OrdinalIgnoreCase));
+
+        return usedInTransactions || usedInBudgets;
+    }
+
+    private static CategoryKind ToCategoryKind(TransactionType type) =>
+        type == TransactionType.Expense ? CategoryKind.Expense : CategoryKind.Income;
+
+    private static string NormalizeName(string value) =>
+        string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
 
     private static BudgetAppData Clone(BudgetAppData source) => new()
     {
         Settings = new AppSettings
         {
-            FullName        = source.Settings.FullName,
+            FullName = source.Settings.FullName,
             DefaultCurrency = source.Settings.DefaultCurrency,
-            WeekStartsOn    = source.Settings.WeekStartsOn,
-            AutoSyncRates   = source.Settings.AutoSyncRates,
-            RoundUpSavings  = source.Settings.RoundUpSavings,
-            ReminderDay     = source.Settings.ReminderDay
+            WeekStartsOn = source.Settings.WeekStartsOn,
+            AutoSyncRates = source.Settings.AutoSyncRates,
+            RoundUpSavings = source.Settings.RoundUpSavings,
+            ReminderDay = source.Settings.ReminderDay
         },
-        Budgets      = [.. source.Budgets.Select(b => new BudgetCategory { Name = b.Name, MonthlyLimit = b.MonthlyLimit, AlertThreshold = b.AlertThreshold })],
-        Goals        = [.. source.Goals.Select(g => new SavingsGoal { Id = g.Id, Title = g.Title, TargetAmount = g.TargetAmount, CurrentAmount = g.CurrentAmount, Deadline = g.Deadline, IsPinned = g.IsPinned })],
-        Transactions = [.. source.Transactions.Select(t => new TransactionRecord { Id = t.Id, Title = t.Title, Category = t.Category, Type = t.Type, Amount = t.Amount, OccurredOn = t.OccurredOn, Notes = t.Notes, IsRecurring = t.IsRecurring })]
+        Categories =
+        [
+            .. source.Categories.Select(category => new CategoryDefinition
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Kind = category.Kind
+            })
+        ],
+        Budgets =
+        [
+            .. source.Budgets.Select(budget => new BudgetCategory
+            {
+                Name = budget.Name,
+                MonthlyLimit = budget.MonthlyLimit,
+                AlertThreshold = budget.AlertThreshold
+            })
+        ],
+        Goals =
+        [
+            .. source.Goals.Select(goal => new SavingsGoal
+            {
+                Id = goal.Id,
+                Title = goal.Title,
+                TargetAmount = goal.TargetAmount,
+                CurrentAmount = goal.CurrentAmount,
+                Deadline = goal.Deadline,
+                IsPinned = goal.IsPinned
+            })
+        ],
+        Transactions =
+        [
+            .. source.Transactions.Select(transaction => new TransactionRecord
+            {
+                Id = transaction.Id,
+                Title = transaction.Title,
+                Category = transaction.Category,
+                Type = transaction.Type,
+                Amount = transaction.Amount,
+                OccurredOn = transaction.OccurredOn,
+                Notes = transaction.Notes,
+                IsRecurring = transaction.IsRecurring
+            })
+        ]
     };
 
     private static bool TryParseAmount(string rawAmount, out decimal amount) =>
         decimal.TryParse(rawAmount, NumberStyles.Number, CultureInfo.CurrentCulture, out amount)
         || decimal.TryParse(rawAmount, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
+
+    private partial Task EnsureStorageReadyAsync();
+
+    private partial Task<string?> ReadSerializedStateAsync();
+
+    private partial Task SaveSerializedStateAsync(string json);
 }

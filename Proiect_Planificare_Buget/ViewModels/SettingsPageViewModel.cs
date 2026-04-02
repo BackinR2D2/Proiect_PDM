@@ -17,6 +17,7 @@ public sealed class SettingsPageViewModel : ViewModelBase
     public SettingsPageViewModel(BudgetDataService budgetDataService)
     {
         _budgetDataService = budgetDataService;
+        _budgetDataService.DataChanged += async (_, _) => await HandleDataChangedAsync(LoadAsync);
         SaveSettingsCommand = new Command(async () => await SaveSettingsAsync());
         ResetSampleDataCommand = new Command(async () => await ResetSampleDataAsync());
     }
@@ -29,15 +30,9 @@ public sealed class SettingsPageViewModel : ViewModelBase
 
     public IReadOnlyList<string> WeekDayOptions => _budgetDataService.WeekDayOptions;
 
-    public string ConnectionString
-    {
-        get => _budgetDataService.ConnectionString;
-        set
-        {
-            _budgetDataService.ConnectionString = value;
-            OnPropertyChanged();
-        }
-    }
+    public string StorageEngine => _budgetDataService.StorageEngine;
+
+    public string DatabasePath => _budgetDataService.DatabasePath;
 
     public string FullName
     {

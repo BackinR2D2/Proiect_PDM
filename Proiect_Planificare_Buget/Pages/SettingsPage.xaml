@@ -64,12 +64,14 @@
 
             <Border Padding="16">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Conexiune baza de date"
+                    <Label Text="Stocare locala"
                            FontFamily="OpenSansSemibold"
                            FontSize="18" />
-                    <Label Text="Connection string catre SQL Server local. Modifica doar daca serverul tau are alt nume."
+                    <Label Text="{Binding StorageEngine, StringFormat='Motor activ: {0}'}"
                            TextColor="{StaticResource Gray500}" />
-                    <Entry Text="{Binding ConnectionString}"
+                    <Label Text="Baza de date SQLite este creata automat in directorul local al aplicatiei."
+                           TextColor="{StaticResource Gray500}" />
+                    <Label Text="{Binding DatabasePath}"
                            FontSize="12" />
                 </VerticalStackLayout>
             </Border>

@@ -4,6 +4,7 @@
              xmlns:models="clr-namespace:Proiect_Planificare_Buget.Models"
              xmlns:viewModels="clr-namespace:Proiect_Planificare_Buget.ViewModels"
              x:Class="Proiect_Planificare_Buget.Pages.BudgetsPage"
+             x:Name="BudgetsPageRoot"
              x:DataType="viewModels:BudgetsPageViewModel"
              Title="Bugete">
 
@@ -71,9 +72,16 @@
                                     <Label Text="{Binding Name}"
                                            FontFamily="OpenSansSemibold"
                                            FontSize="16" />
-                                    <Label Grid.Column="1"
-                                           Text="{Binding StatusLabel}"
-                                           TextColor="{Binding AccentColor}" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="6">
+                                        <Label Text="{Binding StatusLabel}"
+                                               TextColor="{Binding AccentColor}"
+                                               HorizontalTextAlignment="End" />
+                                        <Button Text="Sterge"
+                                                FontSize="12"
+                                                Padding="10,6"
+                                                Command="{Binding Source={x:Reference BudgetsPageRoot}, Path=BindingContext.DeleteBudgetCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </VerticalStackLayout>
                                 </Grid>
 
                                 <ProgressBar Progress="{Binding Progress}"

@@ -7,6 +7,7 @@ public abstract class ViewModelBase : INotifyPropertyChanged
 {
     private bool _isBusy;
     private string _statusMessage = string.Empty;
+    private Func<Task>? _pendingRefreshAction;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -39,6 +40,17 @@ public abstract class ViewModelBase : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
+    protected Task HandleDataChangedAsync(Func<Task> refreshAction)
+    {
+        if (IsBusy)
+        {
+            _pendingRefreshAction = refreshAction;
+            return Task.CompletedTask;
+        }
+
+        return refreshAction();
+    }
+
     protected async Task RunBusyOperationAsync(Func<Task> action, string? successMessage = null, string? errorPrefix = null)
     {
         if (IsBusy)
@@ -64,6 +76,13 @@ public abstract class ViewModelBase : INotifyPropertyChanged
         finally
         {
             IsBusy = false;
+        }
+
+        while (_pendingRefreshAction is not null)
+        {
+            var pendingRefresh = _pendingRefreshAction;
+            _pendingRefreshAction = null;
+            await pendingRefresh();
         }
     }
 }

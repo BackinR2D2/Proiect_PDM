@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Proiect_Planificare_Buget.Controls"
              xmlns:models="clr-namespace:Proiect_Planificare_Buget.Models"
              xmlns:viewModels="clr-namespace:Proiect_Planificare_Buget.ViewModels"
              x:Class="Proiect_Planificare_Buget.Pages.MainPage"
@@ -78,6 +79,156 @@
                         Text="Vezi insight-uri"
                         Command="{Binding OpenInsightsCommand}" />
             </Grid>
+
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Semnale importante"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18" />
+
+                <Grid ColumnDefinitions="*,*"
+                      RowDefinitions="Auto,Auto"
+                      ColumnSpacing="12"
+                      RowSpacing="12">
+                    <Border Grid.Row="0" Grid.Column="0" BackgroundColor="#EFF6FF" Padding="16">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Rata de economisire"
+                                   FontSize="13"
+                                   TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding SavingsRateSummary}"
+                                   FontSize="22"
+                                   FontFamily="OpenSansSemibold"
+                                   TextColor="{Binding SavingsRateAccentColor}" />
+                            <ProgressBar Progress="{Binding SavingsRateProgress}"
+                                         ProgressColor="{Binding SavingsRateAccentColor}" />
+                            <Label Text="{Binding SavingsRateCaption}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="0" Grid.Column="1" BackgroundColor="#FFF7ED" Padding="16">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Cheltuiala medie"
+                                   FontSize="13"
+                                   TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding AverageExpenseSummary}"
+                                   FontSize="22"
+                                   FontFamily="OpenSansSemibold"
+                                   TextColor="#C2410C" />
+                            <Label Text="{Binding AverageExpenseCaption}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="1" Grid.Column="0" BackgroundColor="#FEF2F2" Padding="16">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Cea mai mare cheltuiala"
+                                   FontSize="13"
+                                   TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding LargestExpenseSummary}"
+                                   FontSize="20"
+                                   FontFamily="OpenSansSemibold"
+                                   TextColor="#B91C1C" />
+                            <Label Text="{Binding LargestExpenseCaption}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Row="1" Grid.Column="1" BackgroundColor="#ECFDF5" Padding="16">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Presiune pe bugete"
+                                   FontSize="13"
+                                   TextColor="{StaticResource Gray500}" />
+                            <Label Text="{Binding BudgetPressureSummary}"
+                                   FontSize="20"
+                                   FontFamily="OpenSansSemibold"
+                                   TextColor="{Binding BudgetPressureAccentColor}" />
+                            <ProgressBar Progress="{Binding BudgetPressureProgress}"
+                                         ProgressColor="{Binding BudgetPressureAccentColor}" />
+                            <Label Text="{Binding BudgetPressureCaption}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource Gray500}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Line chart: venituri vs cheltuieli"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18" />
+                <Border Padding="16">
+                    <VerticalStackLayout Spacing="14">
+                        <controls:OverviewLineChartView ItemsSource="{Binding MonthlyTrend}" />
+
+                        <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8" RowSpacing="6">
+                            <BoxView WidthRequest="12"
+                                     HeightRequest="12"
+                                     CornerRadius="6"
+                                     Color="#16A34A" />
+                            <Label Grid.Column="1"
+                                   Text="Venituri lunare"
+                                   VerticalOptions="Center"
+                                   TextColor="{StaticResource Gray500}" />
+                            <BoxView Grid.Column="2"
+                                     WidthRequest="12"
+                                     HeightRequest="12"
+                                     CornerRadius="6"
+                                     Color="#DC2626" />
+                            <Label Grid.Column="3"
+                                   Text="Cheltuieli lunare"
+                                   VerticalOptions="Center"
+                                   TextColor="{StaticResource Gray500}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Doughnut: mixul cheltuielilor"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18" />
+                <Border Padding="16">
+                    <VerticalStackLayout Spacing="14">
+                        <controls:OverviewDoughnutChartView ItemsSource="{Binding TopExpenseCategories}"
+                                                            CenterPrimaryText="{Binding ExpenseSummary}"
+                                                            CenterSecondaryText="Cheltuieli luna curenta" />
+
+                        <CollectionView ItemsSource="{Binding TopExpenseCategories}"
+                                        SelectionMode="None">
+                            <CollectionView.EmptyView>
+                                <Label Text="Nu exista cheltuieli in luna curenta pentru doughnut chart." />
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:OverviewExpenseCategoryItem">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                                          ColumnSpacing="10"
+                                          Padding="0,4">
+                                        <BoxView WidthRequest="12"
+                                                 HeightRequest="12"
+                                                 CornerRadius="6"
+                                                 Color="{Binding AccentColor}"
+                                                 VerticalOptions="Center" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               VerticalOptions="Center" />
+                                        <Label Grid.Column="2"
+                                               Text="{Binding AmountLabel}"
+                                               FontFamily="OpenSansSemibold"
+                                               VerticalOptions="Center" />
+                                        <Label Grid.Column="3"
+                                               Text="{Binding ShareLabel}"
+                                               TextColor="{StaticResource Gray500}"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="12">
                 <Label Text="Bugete cu prioritate"
