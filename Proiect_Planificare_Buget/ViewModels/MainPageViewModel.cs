@@ -181,9 +181,9 @@ public sealed class MainPageViewModel : ViewModelBase
                 .Where(transaction => transaction.Type == TransactionType.Expense)
                 .ToList();
 
-            Greeting = string.IsNullOrWhiteSpace(snapshot.Settings.FullName)
-                ? "Salut!"
-                : $"Salut, {snapshot.Settings.FullName}!";
+            //Greeting = string.IsNullOrWhiteSpace(snapshot.Settings.FullName)
+            //    ? "Salut!"
+            //    : $"Salut, {snapshot.Settings.FullName}!";
             MonthLabel = $"Rezumat pentru {monthStart:MMMM yyyy}";
             IncomeSummary = FormatAmount(income);
             ExpenseSummary = FormatAmount(expenses);
