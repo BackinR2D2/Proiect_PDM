@@ -8,6 +8,9 @@ public sealed class TransactionsPageViewModel : ViewModelBase
 {
     private readonly BudgetDataService _budgetDataService;
 
+    private Guid? _editingTransactionId;
+    private TransactionRecord? _selectedTransaction;
+    private string _saveButtonLabel = "Salveaza tranzactia";
     private string _searchText = string.Empty;
     private string _selectedFilterType = "Toate";
     private string _selectedFilterCategory = "Toate";
@@ -29,8 +32,9 @@ public sealed class TransactionsPageViewModel : ViewModelBase
         _budgetDataService = budgetDataService;
         _budgetDataService.DataChanged += async (_, _) => await HandleDataChangedAsync(LoadAsync);
 
-        AddTransactionCommand = new Command(async () => await AddTransactionAsync());
+        SaveTransactionCommand = new Command(async () => await SaveTransactionAsync());
         DeleteTransactionCommand = new Command<TransactionRecord>(async transaction => await DeleteTransactionAsync(transaction));
+        ResetFormCommand = new Command(ResetForm);
     }
 
     public ObservableCollection<TransactionRecord> Transactions { get; } = [];
@@ -43,9 +47,38 @@ public sealed class TransactionsPageViewModel : ViewModelBase
 
     public ObservableCollection<string> EntryCategoryOptions { get; } = [];
 
-    public ICommand AddTransactionCommand { get; }
+    public ICommand SaveTransactionCommand { get; }
 
     public ICommand DeleteTransactionCommand { get; }
+
+    public ICommand ResetFormCommand { get; }
+
+    public string SaveButtonLabel
+    {
+        get => _saveButtonLabel;
+        private set => SetProperty(ref _saveButtonLabel, value);
+    }
+
+    public TransactionRecord? SelectedTransaction
+    {
+        get => _selectedTransaction;
+        set
+        {
+            if (SetProperty(ref _selectedTransaction, value) && value is not null)
+            {
+                _editingTransactionId = value.Id;
+                EntryTitle = value.Title;
+                EntryAmount = value.Amount.ToString("N2");
+                SelectedEntryType = value.Type == TransactionType.Expense ? "Cheltuiala" : "Venit";
+                SelectedDate = value.OccurredOn.Date;
+                SelectedTime = value.OccurredOn.TimeOfDay;
+                Notes = value.Notes;
+                IsRecurring = value.IsRecurring;
+                SelectedEntryCategory = value.Category;
+                SaveButtonLabel = "Salveaza modificarile";
+            }
+        }
+    }
 
     public string SearchText
     {
@@ -160,7 +193,7 @@ public sealed class TransactionsPageViewModel : ViewModelBase
         }, errorPrefix: "Nu am putut incarca tranzactiile");
     }
 
-    private async Task AddTransactionAsync()
+    private async Task SaveTransactionAsync()
     {
         await RunBusyOperationAsync(async () =>
         {
@@ -169,23 +202,48 @@ public sealed class TransactionsPageViewModel : ViewModelBase
 
             var transactionType = SelectedEntryType == "Cheltuiala" ? TransactionType.Expense : TransactionType.Income;
 
-            await _budgetDataService.AddTransactionAsync(
-                EntryTitle,
-                SelectedEntryCategory,
-                EntryAmount,
-                transactionType,
-                SelectedDate,
-                SelectedTime,
-                Notes,
-                IsRecurring);
+            if (_editingTransactionId.HasValue)
+            {
+                await _budgetDataService.UpdateTransactionAsync(
+                    _editingTransactionId.Value,
+                    EntryTitle,
+                    SelectedEntryCategory,
+                    EntryAmount,
+                    transactionType,
+                    SelectedDate,
+                    SelectedTime,
+                    Notes,
+                    IsRecurring);
+            }
+            else
+            {
+                await _budgetDataService.AddTransactionAsync(
+                    EntryTitle,
+                    SelectedEntryCategory,
+                    EntryAmount,
+                    transactionType,
+                    SelectedDate,
+                    SelectedTime,
+                    Notes,
+                    IsRecurring);
+            }
 
-            EntryTitle = string.Empty;
-            EntryAmount = string.Empty;
-            Notes = string.Empty;
-            IsRecurring = false;
-            SelectedDate = DateTime.Today;
-            SelectedTime = DateTime.Now.TimeOfDay;
+            ResetForm();
         }, successMessage: "Tranzactia a fost salvata.", errorPrefix: "Nu am putut salva tranzactia");
+    }
+
+    private void ResetForm()
+    {
+        _editingTransactionId = null;
+        _selectedTransaction = null;
+        OnPropertyChanged(nameof(SelectedTransaction));
+        SaveButtonLabel = "Salveaza tranzactia";
+        EntryTitle = string.Empty;
+        EntryAmount = string.Empty;
+        Notes = string.Empty;
+        IsRecurring = false;
+        SelectedDate = DateTime.Today;
+        SelectedTime = DateTime.Now.TimeOfDay;
     }
 
     private async Task DeleteTransactionAsync(TransactionRecord? transaction)
@@ -199,7 +257,11 @@ public sealed class TransactionsPageViewModel : ViewModelBase
         {
             await _budgetDataService.DeleteTransactionAsync(transaction.Id);
 
-            if (SelectedEntryCategory == transaction.Category && !EntryCategoryOptions.Contains(SelectedEntryCategory))
+            if (_editingTransactionId == transaction.Id)
+            {
+                ResetForm();
+            }
+            else if (SelectedEntryCategory == transaction.Category && !EntryCategoryOptions.Contains(SelectedEntryCategory))
             {
                 SelectedEntryCategory = EntryCategoryOptions.FirstOrDefault() ?? string.Empty;
             }

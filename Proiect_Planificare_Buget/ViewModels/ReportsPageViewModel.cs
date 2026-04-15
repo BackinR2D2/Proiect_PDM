@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Storage;
 using Proiect_Planificare_Buget.Models;
@@ -10,6 +11,7 @@ public sealed class ReportsPageViewModel : ViewModelBase
 {
     private readonly BudgetDataService _budgetDataService;
     private readonly XmlReportService _xmlReportService;
+    private readonly CsvReportService _csvReportService;
 
     private DateTime _startDate = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     private DateTime _endDate = DateTime.Today;
@@ -18,14 +20,17 @@ public sealed class ReportsPageViewModel : ViewModelBase
     private string _netSummary = "0.00 RON";
     private string _transactionCountSummary = "0";
     private string _exportedReportPath = "Raportul XML nu a fost generat inca.";
+    private string _exportedCsvPath = "Raportul CSV nu a fost generat inca.";
 
-    public ReportsPageViewModel(BudgetDataService budgetDataService, XmlReportService xmlReportService)
+    public ReportsPageViewModel(BudgetDataService budgetDataService, XmlReportService xmlReportService, CsvReportService csvReportService)
     {
         _budgetDataService = budgetDataService;
         _xmlReportService = xmlReportService;
+        _csvReportService = csvReportService;
         _budgetDataService.DataChanged += async (_, _) => await HandleDataChangedAsync(LoadAsync);
 
         GenerateReportCommand = new Command(async () => await GenerateReportAsync());
+        ExportCsvCommand = new Command(async () => await ExportCsvAsync());
         CurrentMonthCommand = new Command(SetCurrentMonth);
     }
 
@@ -33,7 +38,13 @@ public sealed class ReportsPageViewModel : ViewModelBase
 
     public ObservableCollection<TransactionRecord> TransactionsInRange { get; } = [];
 
+    public ObservableCollection<OverviewExpenseCategoryItem> ReportExpenseChart { get; } = [];
+
+    public ObservableCollection<OverviewMonthlyTrendItem> ReportTrendChart { get; } = [];
+
     public ICommand GenerateReportCommand { get; }
+
+    public ICommand ExportCsvCommand { get; }
 
     public ICommand CurrentMonthCommand { get; }
 
@@ -79,6 +90,12 @@ public sealed class ReportsPageViewModel : ViewModelBase
         private set => SetProperty(ref _exportedReportPath, value);
     }
 
+    public string ExportedCsvPath
+    {
+        get => _exportedCsvPath;
+        private set => SetProperty(ref _exportedCsvPath, value);
+    }
+
     public Task LoadAsync()
     {
         return RunBusyOperationAsync(
@@ -93,15 +110,21 @@ public sealed class ReportsPageViewModel : ViewModelBase
             var reportData = await RefreshAsync();
             var reportPath = await _xmlReportService.ExportAsync(reportData.Snapshot, reportData.BudgetStatuses);
             ExportedReportPath = reportPath;
-
-            var reportOpened = await TryOpenReportAsync(reportPath);
-            var successMessage = reportOpened
-                ? "Raportul XML a fost exportat si deschis cu succes."
-                : "Raportul XML a fost exportat cu succes.";
-
-            StatusMessage = successMessage;
-            await ShowSuccessAlertAsync(successMessage, reportPath);
+            StatusMessage = "Raportul XML a fost exportat cu succes.";
+            await OpenFileAsync(reportPath);
         }, errorPrefix: "Nu am putut genera raportul XML");
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        await RunBusyOperationAsync(async () =>
+        {
+            var reportData = await RefreshAsync();
+            var csvPath = await _csvReportService.ExportAsync(reportData.Snapshot.Transactions);
+            ExportedCsvPath = csvPath;
+            StatusMessage = "Raportul CSV a fost exportat cu succes.";
+            await OpenFileAsync(csvPath);
+        }, errorPrefix: "Nu am putut exporta raportul CSV");
     }
 
     private Task<ReportGenerationData> RefreshAsync()
@@ -173,6 +196,9 @@ public sealed class ReportsPageViewModel : ViewModelBase
             {
                 TransactionsInRange.Add(transaction);
             }
+
+            RefreshExpenseChart(transactions);
+            RefreshTrendChart(transactions, StartDate, EndDate);
         }
 
         var filteredSnapshot = new BudgetAppData
@@ -187,32 +213,92 @@ public sealed class ReportsPageViewModel : ViewModelBase
         return new ReportGenerationData(filteredSnapshot, budgetStatuses);
     }
 
-    private async Task<bool> TryOpenReportAsync(string reportPath)
+    private void RefreshExpenseChart(IEnumerable<TransactionRecord> transactions)
     {
-        try
+        var palette = new[] { "#DC2626", "#EA580C", "#D97706", "#16A34A", "#2563EB" };
+
+        var categoryTotals = transactions
+            .Where(t => t.Type == TransactionType.Expense)
+            .GroupBy(t => t.Category)
+            .Select(g => new { Name = g.Key, Amount = g.Sum(t => t.Amount) })
+            .OrderByDescending(x => x.Amount)
+            .Take(5)
+            .ToList();
+
+        var totalAmount = categoryTotals.Sum(x => x.Amount);
+        var maxAmount = categoryTotals.Select(x => x.Amount).DefaultIfEmpty(1m).Max();
+
+        ReportExpenseChart.Clear();
+        for (var i = 0; i < categoryTotals.Count; i++)
         {
-            return await Launcher.Default.OpenAsync(new OpenFileRequest(
-                "Raport XML",
-                new ReadOnlyFile(reportPath)));
-        }
-        catch
-        {
-            return false;
+            var item = categoryTotals[i];
+            ReportExpenseChart.Add(new OverviewExpenseCategoryItem
+            {
+                Name = item.Name,
+                Amount = item.Amount,
+                Share = totalAmount <= 0 ? 0 : (double)(item.Amount / totalAmount),
+                BarWidth = maxAmount <= 0 ? 0 : (double)(item.Amount / maxAmount) * 280,
+                AccentColor = palette[i % palette.Length]
+            });
         }
     }
 
-    private static Task ShowSuccessAlertAsync(string message, string reportPath)
+    private void RefreshTrendChart(IEnumerable<TransactionRecord> transactions, DateTime start, DateTime end)
     {
-        return MainThread.InvokeOnMainThreadAsync(async () =>
-        {
-            if (Shell.Current is null)
-                return;
+        var byMonth = transactions
+            .GroupBy(t => new DateTime(t.OccurredOn.Year, t.OccurredOn.Month, 1))
+            .ToDictionary(g => g.Key, g => g.ToList());
 
-            await Shell.Current.DisplayAlertAsync(
-                "Raport exportat",
-                $"{message}\n\nFisier: {reportPath}",
-                "OK");
+        var months = new List<DateTime>();
+        var cursor = new DateTime(start.Year, start.Month, 1);
+        var endMonth = new DateTime(end.Year, end.Month, 1);
+        while (cursor <= endMonth)
+        {
+            months.Add(cursor);
+            cursor = cursor.AddMonths(1);
+        }
+
+        var allValues = months.SelectMany(m =>
+        {
+            var ts = byMonth.GetValueOrDefault(m) ?? [];
+            return new[]
+            {
+                ts.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount),
+                ts.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount)
+            };
         });
+
+        var maxValue = allValues.DefaultIfEmpty(1m).Max();
+        if (maxValue <= 0) maxValue = 1;
+
+        ReportTrendChart.Clear();
+        foreach (var month in months)
+        {
+            var ts = byMonth.GetValueOrDefault(month) ?? [];
+            var inc = ts.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount);
+            var exp = ts.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount);
+
+            ReportTrendChart.Add(new OverviewMonthlyTrendItem
+            {
+                MonthLabel = month.ToString("MMM", CultureInfo.CurrentCulture),
+                Income = inc,
+                Expense = exp,
+                IncomeBarWidth = (double)(inc / maxValue) * 280,
+                ExpenseBarWidth = (double)(exp / maxValue) * 280
+            });
+        }
+    }
+
+    private static async Task OpenFileAsync(string filePath)
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync(new Uri("file://" + filePath));
+        }
+        catch
+        {
+            // fallback: ignore if platform can't open
+        }
     }
 
     private void SetCurrentMonth()

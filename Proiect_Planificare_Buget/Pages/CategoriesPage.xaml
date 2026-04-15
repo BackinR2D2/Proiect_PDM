@@ -55,16 +55,35 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:CategoryDefinition">
                         <Border Padding="16" Margin="0,0,0,12">
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="12">
-                                <VerticalStackLayout Spacing="3">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                <Border BackgroundColor="{Binding BadgeColor}"
+                                        StrokeThickness="0"
+                                        Padding="8"
+                                        WidthRequest="44"
+                                        HeightRequest="44"
+                                        VerticalOptions="Center">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="14" />
+                                    </Border.StrokeShape>
+                                    <Label Text="{Binding KindIcon}"
+                                           FontFamily="MaterialSymbols"
+                                           FontSize="22"
+                                           TextColor="{Binding BadgeTextColor}"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center" />
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
                                     <Label Text="{Binding Name}"
                                            FontFamily="OpenSansSemibold"
                                            FontSize="16" />
                                     <Label Text="{Binding KindLabel}"
                                            TextColor="{Binding AccentColor}" />
                                 </VerticalStackLayout>
-                                <Button Grid.Column="1"
+                                <Button Grid.Column="2"
                                         Text="Sterge"
+                                        VerticalOptions="Center"
                                         Command="{Binding Source={x:Reference CategoriesPageRoot}, Path=BindingContext.DeleteCategoryCommand}"
                                         CommandParameter="{Binding .}" />
                             </Grid>

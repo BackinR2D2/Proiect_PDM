@@ -93,6 +93,43 @@ public sealed partial class BudgetDataService
         });
     }
 
+    public async Task UpdateTransactionAsync(
+        Guid id,
+        string title,
+        string category,
+        string amountText,
+        TransactionType type,
+        DateTime selectedDate,
+        TimeSpan selectedTime,
+        string notes,
+        bool isRecurring)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException("Titlul tranzactiei este obligatoriu.");
+
+        if (!TryParseAmount(amountText, out var amount) || amount <= 0)
+            throw new InvalidOperationException("Introdu o suma valida mai mare decat zero.");
+
+        var normalizedCategory = NormalizeName(category);
+        if (string.IsNullOrWhiteSpace(normalizedCategory))
+            throw new InvalidOperationException("Selecteaza o categorie valida.");
+
+        await MutateAsync(data =>
+        {
+            var transaction = data.Transactions.FirstOrDefault(t => t.Id == id)
+                ?? throw new InvalidOperationException("Tranzactia selectata nu mai exista.");
+
+            EnsureCategoryExists(data, normalizedCategory, ToCategoryKind(type));
+            transaction.Title = title.Trim();
+            transaction.Category = normalizedCategory;
+            transaction.Amount = amount;
+            transaction.Type = type;
+            transaction.OccurredOn = selectedDate.Date.Add(selectedTime);
+            transaction.Notes = notes.Trim();
+            transaction.IsRecurring = isRecurring;
+        });
+    }
+
     public async Task SaveBudgetAsync(string category, string monthlyLimitText, double alertThresholdPercent)
     {
         if (!TryParseAmount(monthlyLimitText, out var monthlyLimit) || monthlyLimit <= 0)

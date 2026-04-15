@@ -24,6 +24,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<BudgetDataService>();
         builder.Services.AddSingleton<ExchangeRateService>();
         builder.Services.AddSingleton<XmlReportService>();
+        builder.Services.AddSingleton<CsvReportService>();
 
         builder.Services.AddSingleton<MainPageViewModel>();
         builder.Services.AddSingleton<TransactionsPageViewModel>();

@@ -11,4 +11,10 @@ public sealed class CategoryDefinition
     public string KindLabel => Kind == CategoryKind.Expense ? "Cheltuiala" : "Venit";
 
     public string AccentColor => Kind == CategoryKind.Expense ? "#B91C1C" : "#0F766E";
+
+    public string BadgeColor => Kind == CategoryKind.Expense ? "#FEE2E2" : "#DCFCE7";
+
+    public string BadgeTextColor => Kind == CategoryKind.Expense ? "#B91C1C" : "#0F766E";
+
+    public string KindIcon => Kind == CategoryKind.Expense ? "\uE8E3" : "\uE8E5";
 }

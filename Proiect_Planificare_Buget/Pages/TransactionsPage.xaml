@@ -20,7 +20,7 @@
 
             <Border Padding="16">
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="Adauga tranzactie"
+                    <Label Text="Adauga / editeaza tranzactie"
                            FontFamily="OpenSansSemibold"
                            FontSize="18" />
 
@@ -59,8 +59,14 @@
                                VerticalOptions="Center" />
                     </HorizontalStackLayout>
 
-                    <Button Text="Salveaza tranzactia"
-                            Command="{Binding AddTransactionCommand}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button Grid.Column="0"
+                                Text="{Binding SaveButtonLabel}"
+                                Command="{Binding SaveTransactionCommand}" />
+                        <Button Grid.Column="1"
+                                Text="Goleste formular"
+                                Command="{Binding ResetFormCommand}" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
 
@@ -83,7 +89,8 @@
                    FontSize="12" />
 
             <CollectionView ItemsSource="{Binding Transactions}"
-                            SelectionMode="None">
+                            SelectionMode="Single"
+                            SelectedItem="{Binding SelectedTransaction}">
                 <CollectionView.EmptyView>
                     <Label Text="Nu exista tranzactii care sa corespunda filtrelor selectate." />
                 </CollectionView.EmptyView>
@@ -113,10 +120,23 @@
                                        TextColor="{StaticResource Gray500}" />
 
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                    <Border BackgroundColor="{Binding BadgeColor}" StrokeThickness="0" Padding="8">
-                                        <Label Text="{Binding TypeLabel}"
-                                               FontSize="12"
-                                               FontFamily="OpenSansSemibold" />
+                                    <Border BackgroundColor="{Binding BadgeColor}"
+                                            StrokeThickness="0"
+                                            Padding="8"
+                                            WidthRequest="40"
+                                            HeightRequest="40"
+                                            VerticalOptions="Center">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="12" />
+                                        </Border.StrokeShape>
+                                        <Label Text="{Binding TypeIcon}"
+                                               FontFamily="MaterialSymbols"
+                                               FontSize="20"
+                                               TextColor="{Binding BadgeTextColor}"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center" />
                                     </Border>
                                     <Label Grid.Column="1"
                                            Text="{Binding IsRecurring, StringFormat='Recursiv: {0}'}"
