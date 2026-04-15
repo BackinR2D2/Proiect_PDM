@@ -8,59 +8,115 @@
     Title="Budget Planner">
 
     <FlyoutItem Title="Overview">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE88A;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Overview"
-            ContentTemplate="{DataTemplate pages:MainPage}"
-            Route="overview" />
+        Title="Overview"
+        ContentTemplate="{DataTemplate pages:MainPage}"
+        Route="overview" />
     </FlyoutItem>
 
     <FlyoutItem Title="Tranzactii">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE8B0;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Tranzactii"
-            ContentTemplate="{DataTemplate pages:TransactionsPage}"
-            Route="transactions" />
+        Title="Tranzactii"
+        ContentTemplate="{DataTemplate pages:TransactionsPage}"
+        Route="transactions" />
     </FlyoutItem>
 
     <FlyoutItem Title="Bugete">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE850;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Bugete"
-            ContentTemplate="{DataTemplate pages:BudgetsPage}"
-            Route="budgets" />
+        Title="Bugete"
+        ContentTemplate="{DataTemplate pages:BudgetsPage}"
+        Route="budgets" />
     </FlyoutItem>
 
     <FlyoutItem Title="Categorii">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE574;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Categorii"
-            ContentTemplate="{DataTemplate pages:CategoriesPage}"
-            Route="categories" />
+        Title="Categorii"
+        ContentTemplate="{DataTemplate pages:CategoriesPage}"
+        Route="categories" />
     </FlyoutItem>
 
     <FlyoutItem Title="Obiective">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE153;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Obiective"
-            ContentTemplate="{DataTemplate pages:GoalsPage}"
-            Route="goals" />
+        Title="Obiective"
+        ContentTemplate="{DataTemplate pages:GoalsPage}"
+        Route="goals" />
     </FlyoutItem>
 
     <FlyoutItem Title="Rapoarte">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE26B;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Rapoarte"
-            ContentTemplate="{DataTemplate pages:ReportsPage}"
-            Route="reports" />
+        Title="Rapoarte"
+        ContentTemplate="{DataTemplate pages:ReportsPage}"
+        Route="reports" />
     </FlyoutItem>
 
     <FlyoutItem Title="Insight-uri">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE8E5;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Insight-uri"
-            ContentTemplate="{DataTemplate pages:InsightsPage}"
-            Route="insights" />
+        Title="Insight-uri"
+        ContentTemplate="{DataTemplate pages:InsightsPage}"
+        Route="insights" />
     </FlyoutItem>
 
     <FlyoutItem Title="Setari">
+        <FlyoutItem.Icon>
+            <FontImageSource
+            Glyph="&#xE8B8;"
+            FontFamily="MaterialSymbolsOutlined"
+            Size="20" />
+        </FlyoutItem.Icon>
+
         <ShellContent
-            Title="Setari"
-            ContentTemplate="{DataTemplate pages:SettingsPage}"
-            Route="settings" />
+        Title="Setari"
+        ContentTemplate="{DataTemplate pages:SettingsPage}"
+        Route="settings" />
     </FlyoutItem>
 
 </Shell>

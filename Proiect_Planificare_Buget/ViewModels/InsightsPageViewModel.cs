@@ -26,6 +26,12 @@ public sealed class InsightsPageViewModel : ViewModelBase
 
         RefreshRatesCommand = new Command(async () => await RefreshRatesAsync());
         ExportReportCommand = new Command(async () => await ExportReportAsync());
+
+        Task.Run(async () =>
+        {
+            await Task.Delay(100);
+            await MainThread.InvokeOnMainThreadAsync(async () => await LoadAsync());
+        });
     }
 
     public ObservableCollection<ExchangeRateItem> ExchangeRates { get; } = [];
