@@ -156,7 +156,7 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="12">
-                <Label Text="Line chart: venituri vs cheltuieli"
+                <Label Text="Venituri vs Cheltuieli"
                        FontFamily="OpenSansSemibold"
                        FontSize="18" />
                 <Border Padding="16">
@@ -187,7 +187,7 @@
             </VerticalStackLayout>
 
             <VerticalStackLayout Spacing="12">
-                <Label Text="Doughnut: mixul cheltuielilor"
+                <Label Text="Mixul cheltuielilor"
                        FontFamily="OpenSansSemibold"
                        FontSize="18" />
                 <Border Padding="16">
