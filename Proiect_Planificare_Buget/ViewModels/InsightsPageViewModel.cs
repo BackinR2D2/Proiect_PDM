@@ -115,11 +115,29 @@ public sealed class InsightsPageViewModel : ViewModelBase
 
     private async Task ExportReportAsync()
     {
+        string? reportPath = null;
+
         await RunBusyOperationAsync(async () =>
         {
             var snapshot = await _budgetDataService.GetSnapshotAsync();
-            var reportPath = await _xmlReportService.ExportAsync(snapshot, PressureBudgets);
+            reportPath = await _xmlReportService.ExportAsync(snapshot, PressureBudgets);
             ExportedReportPath = reportPath;
         }, successMessage: "Raportul XML a fost generat.", errorPrefix: "Nu am putut genera raportul XML");
+
+        if (reportPath is null) return;
+
+        var open = await Shell.Current.DisplayAlert(
+            "Raport generat",
+            "Raportul XML a fost salvat. Vrei sa il deschizi acum?",
+            "Deschide",
+            "Nu");
+
+        if (open)
+        {
+            await Launcher.Default.OpenAsync(new OpenFileRequest
+            {
+                File = new ReadOnlyFile(reportPath)
+            });
+        }
     }
 }
